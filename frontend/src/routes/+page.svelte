@@ -1,7 +1,7 @@
 <script>
-	import { Card } from 'flowbite-svelte';
+  import { Card } from 'flowbite-svelte';
 </script>
 
 <Card>
-	<p>Here could be some text.</p>
+  <p>Here could be some text.</p>
 </Card>
