@@ -9,6 +9,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .openssl = true,
     });
+    const sqlite = b.dependency("sqlite", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     // exe
     const exe = b.addExecutable(.{
@@ -19,6 +23,8 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
     exe.root_module.addImport("zap", zap.module("zap"));
+    exe.root_module.addImport("sqlite", sqlite.module("sqlite"));
+    exe.linkLibrary(sqlite.artifact("sqlite"));
 
     // build run
     const run_cmd = b.addRunArtifact(exe);
@@ -31,7 +37,7 @@ pub fn build(b: *std.Build) void {
 
     // build test
     const exe_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = b.path("src/test.zig"),
         .target = target,
         .optimize = optimize,
     });

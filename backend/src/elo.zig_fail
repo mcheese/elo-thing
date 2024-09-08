@@ -1,0 +1,206 @@
+const std = @import("std");
+const Alloc = std.mem.Allocator;
+
+const Self = @This();
+
+pub const EloError = error{
+    NotFound,
+    BadId,
+    BadJson,
+    AlreadyExists,
+};
+
+const Entry = struct {
+    name: []const u8,
+    rating: i64,
+
+    pub fn deinit(self: Entry, alloc: Alloc) void {
+        alloc.free(self.name);
+    }
+    pub fn clone(self: Entry, alloc: Alloc) !Entry {
+        return .{
+            .name = try alloc.dupe(u8, self.name),
+            .rating = self.rating,
+        };
+    }
+    pub fn moreThan(_: void, l: Entry, r: Entry) bool {
+        return l.rating > r.rating;
+    }
+};
+
+const Group = struct {
+    entries: []Entry,
+    mtx: std.Thread.RwLock = .{},
+
+    pub fn deinit(self: Group, alloc: Alloc) void {
+        self.mtx.lock();
+        defer self.mtx.unlock(); // not sure if needed, no idea if destroy()ing a locked mtx is legal
+
+        for (self.entries) |*e| e.deinit(alloc);
+        alloc.free(self.entries);
+    }
+    pub fn clone(self: Group, alloc: Alloc) !Group {
+        return .{
+            .entries = blk: {
+                const entries = try alloc.alloc(Entry, self.entries.len);
+                for (self.entries, entries) |src, *dst| {
+                    dst.* = try src.clone(alloc);
+                }
+                break :blk entries;
+            },
+        };
+    }
+
+    const RoRef = struct {
+        grp: *const Group,
+        fn deinit(self: RoRef) void {
+            self.grp.mtx.unlockShared();
+        }
+    };
+};
+
+const GroupKey = u48;
+const GroupMap = struct {
+    map: std.hash_map.AutoHashMap(GroupKey, *Group),
+    mtx: std.Thread.RwLock = .{},
+    alloc: Alloc,
+
+    fn init(alloc: Alloc) GroupMap {
+        return .{
+            .map = .{alloc},
+            .alloc = alloc,
+        };
+    }
+
+    fn deinit(self: *GroupMap) void {
+        self.mtx.lock();
+        defer self.mtx.unlock();
+
+        var it = self.map.valueIterator();
+        while (it.next()) |*grp| {
+            grp.deinit(self.alloc);
+            self.alloc.destroy(grp);
+        }
+        self.map.deinit();
+    }
+
+    /// takes ownership of Group ptr, cleans using .alloc, always
+    /// thread safe
+    fn put(self: *GroupMap, id: GroupKey, grp: *Group) !void {
+        errdefer self.alloc.destroy(grp);
+        self.mtx.lock();
+        defer self.mtx.unlock();
+
+        const lookup = try self.map.getOrPut(id);
+        if (lookup.found_existing) return error.AlreadyExists;
+        lookup.value_ptr = grp;
+    }
+
+    /// get GroupRoRef
+    /// need to deinit it for unlock()
+    fn getReadOnly(self: *GroupMap, id: GroupKey) !GroupRoRef {
+        errdefer self.alloc.destroy(grp);
+        self.mtx.lockShared();
+        defer self.mtx.unlockShared();
+
+        const lookup = try self.map.getOrPut(id);
+        if (lookup.found_existing) return error.AlreadyExists;
+        lookup.value_ptr = grp;
+    }
+};
+
+alloc: std.mem.Allocator = undefined,
+groups: GroupMap,
+
+pub fn init(alloc: std.mem.Allocator) Self {
+    return .{
+        .groups = GroupMap.init(alloc),
+        .alloc = alloc,
+        .mtx = std.Thread.Mutex{},
+    };
+}
+
+pub fn deinit(self: *Self) void {
+    var it = self.groups.valueIterator();
+    while (it.next()) |group| {
+        group.deinit(self.alloc);
+    }
+    self.groups.deinit();
+}
+
+pub fn addGroup(self: *Self, sid: []const u8, json: []const u8) !void {
+    const id = try idFromSid(sid);
+    const parsed = try std.json.parseFromSlice([]Entry, self.alloc, json, .{ .allocate = .alloc_if_needed });
+    defer parsed.deinit();
+    try self.groups.put(id, try Group.clone(.{ .entries = parsed.value }, self.alloc));
+}
+
+/// group json string
+/// need to free() returned value
+pub fn getGroup(self: *Self, sid: []const u8) ![]const u8 {
+    const id = try idFromSid(sid);
+    self.mtx.lock();
+    defer self.mtx.unlock();
+    const g = self.groups.get(id) orelse {
+        return EloError.NotFound;
+    };
+
+    return std.json.stringifyAlloc(self.alloc, g.entries, .{});
+}
+
+/// valid SID is 8 [alnum,-,_] characters
+/// url-base64-decode to u64 (48 lower bits)
+fn idFromSid(str: []const u8) !u48 {
+    if (str.len != 8) return error.BadId;
+
+    var buf = std.mem.zeroes([8]u8);
+    std.base64.url_safe_no_pad.Decoder.decode(&buf, str) catch {
+        return error.BadId;
+    };
+
+    return std.mem.readInt(u48, buf[0..6], .little);
+}
+
+// valid id is lower 48 bit
+// url-base64-encodes to 10 [alnum,-,_] chars
+fn sidFromId(id: u64) ![8]u8 {
+    if (id >= (1 << 48)) return error.BadId;
+
+    var id_bytes: [8]u8 = undefined;
+    std.mem.writeInt(u64, &id_bytes, id, .little);
+
+    var buf: [8]u8 = undefined;
+    const span = std.base64.url_safe_no_pad.Encoder.encode(&buf, id_bytes[0..6]);
+    std.debug.assert(span.len == 8);
+
+    return buf;
+}
+
+test "sid id conversion" {
+    try std.testing.expectEqual(idFromSid("AAAAAAAA"), 0);
+    try std.testing.expectEqual(idFromSid("________"), (1 << 48) - 1);
+    try std.testing.expectEqual(idFromSid("____AAAA"), 0xFFFFFF);
+    try std.testing.expectEqual(idFromSid("AQAAAAAA"), 1);
+
+    try std.testing.expectEqualSlices(u8, "AAAAAAAA", &try sidFromId(0));
+    try std.testing.expectEqualSlices(u8, "________", &try sidFromId((1 << 48) - 1));
+    try std.testing.expectEqualSlices(u8, "____AAAA", &try sidFromId(0xFFFFFF));
+    try std.testing.expectEqualSlices(u8, "AQAAAAAA", &try sidFromId(1));
+
+    var prng = std.rand.DefaultPrng.init(@bitCast(std.time.milliTimestamp()));
+
+    const rand = prng.random();
+
+    for (0..40) |_| {
+        const id = rand.int(u48);
+        const sid = try sidFromId(id);
+        std.debug.print(" * {s} <-> 0x{x:0>12}\n", .{ &sid, id });
+        const id2 = try idFromSid(&sid);
+        for (sid) |c| {
+            if (!std.ascii.isAlphanumeric(c) and c != '-' and c != '_') {
+                unreachable;
+            }
+        }
+        try std.testing.expectEqual(id, id2);
+    }
+}

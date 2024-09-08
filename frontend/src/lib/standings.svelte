@@ -15,11 +15,25 @@
   export let id: string;
 
   async function getStandings() {
-    const res = await fetch(PUBLIC_ENDPOINT_URL + '/standings/' + id);
+    const res = await fetch(PUBLIC_ENDPOINT_URL + '/group/' + id);
     if (!res.ok) {
       throw res.statusText;
     }
-    return await res.json();
+    return await res.json().then((j) => {
+      return [...j].sort((a, b) => {
+        const aVal: number = a['rating'];
+        const bVal: number = b['rating'];
+        if (aVal < bVal) {
+          return 1;
+        } else if (aVal > bVal) {
+          return -1;
+        } else {
+          return 0;
+        }
+      });
+    }).then((j) => {
+      return j.map((v,i) => ({...v, rank: i+1}));
+    });
   }
 
   const sortKey = writable('rank'); // default sort key

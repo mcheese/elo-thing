@@ -5,9 +5,7 @@ const Elo = @import("elo.zig");
 const Self = @This();
 
 const routes = [_]Route{
-    .{ .path = "/standings", .handler = ep_standings },
-    .{ .path = "/bla", .handler = ep_standings },
-    .{ .path = "/xdd", .handler = ep_standings },
+    .{ .path = "/group", .handler = ep_group },
 };
 
 // global/static because passing context through the request handler in Zap is not recommended
@@ -25,8 +23,17 @@ pub fn init(e: *Elo) Self {
 
 const Route = struct {
     path: []const u8,
-    handler: *const fn (req: *const zap.Request, path: []const u8) void,
+    handler: *const fn (req: *const zap.Request, path: []const u8) anyerror!void,
 };
+
+fn status(err: anyerror) zap.StatusCode {
+    const c = zap.StatusCode;
+    return switch (err) {
+        error.BadId => c.bad_request,
+        error.NotFound => c.not_found,
+        else => c.internal_server_error,
+    };
+}
 
 /// root request handler, doing the routing
 fn on_request(req: zap.Request) void {
@@ -35,7 +42,9 @@ fn on_request(req: zap.Request) void {
     if (req.path) |p| {
         for (routes) |route| {
             if (std.mem.startsWith(u8, p, route.path)) {
-                return route.handler(&req, p[route.path.len..]);
+                return route.handler(&req, p[route.path.len..]) catch |e| {
+                    return req.setStatus(status(e));
+                };
             }
         }
     }
@@ -43,16 +52,13 @@ fn on_request(req: zap.Request) void {
     req.setStatus(.not_found);
 }
 
-fn ep_standings(req: *const zap.Request, path: []const u8) void {
+fn ep_group(req: *const zap.Request, path: []const u8) !void {
     if (path.len < 2 or path[0] != '/') {
         return req.setStatus(.bad_request);
     }
     const id = path[1..];
-    const s = elo.getStandings(id) catch |err| switch (err) {
-        error.NotFound => return req.setStatus(.not_found),
-    };
-    req.setContentType(.JSON) catch {};
-    req.sendBody(s) catch |e| {
-        std.log.err("sendBody() failed: {}", .{e});
-    };
+    const s = try elo.getGroup(id);
+    defer elo.alloc.free(s);
+    try req.setContentType(.JSON);
+    try req.sendBody(s);
 }
