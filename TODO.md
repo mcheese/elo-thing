@@ -4,18 +4,25 @@
 > Keeping track for myself.
 
 ### Functionality
-  - [ ] Elo
+  - [ ] Rating calc
+    - [x] Elo
+    - [ ] Adjusted algos (FIDE, USCF)
+    - [ ] K value by amount of games
+  - [ ] Images
+  - [ ] Janitor abandoned matches
   - [ ] Matchmaking
   - [ ] Limit votes
+    - [ ] Identify session
   - [ ] Create lists
-  - [ ] Images
 
 ### Security
   - [ ] CORS
   - [ ] Captchas
   - [ ] HTTPS
   - [ ] Ask for external images
+  - [ ] Throttle per IP
 
 ### Optimization
-  - [ ] Cache in endpoint
+  - [ ] Cache backend
   - [ ] Rethink DB - Postgres?
+
