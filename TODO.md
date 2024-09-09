@@ -8,9 +8,9 @@
     - [x] Elo
     - [ ] Adjusted algos (FIDE, USCF)
     - [ ] K value by amount of games
-  - [ ] Images
+  - [x] Images
   - [ ] Janitor abandoned matches
-  - [ ] Matchmaking
+  - [x] Matchmaking
   - [ ] Limit votes
     - [ ] Identify session
   - [ ] Create lists

@@ -12,10 +12,7 @@ pub const EloError = error{
     NoResult,
 };
 
-const Entry = struct {
-    name: []const u8,
-    rating: i64,
-};
+const Entry = struct { name: []const u8, rating: i64, img: []const u8 = "" };
 const Group = []Entry;
 
 // in-mem saved per match
@@ -143,7 +140,7 @@ pub fn getGroup(self: *Self, sid: []const u8) ![]const u8 {
     const id = try idFromSid(sid);
 
     const query =
-        \\SELECT name,rating FROM entries WHERE group_id = ?
+        \\SELECT name,rating,img FROM entries WHERE group_id = ?
     ;
     var stmt = try self.db().prepare(query);
     defer stmt.deinit();
@@ -176,8 +173,10 @@ const Rand = struct {
     }
 };
 
+const MatchmakingRow = struct { rowid: i64, rating: i64, matches: i64 };
+
 pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
-    // TODO: some form of matchmaking, also remember number of matches per item
+    // TODO: cache the fetch
     // TODO: limit this per user/session
     // TODO: cleanup unused active_matches
 
@@ -186,42 +185,48 @@ pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
     var arena = std.heap.ArenaAllocator.init(self.alloc);
     defer arena.deinit();
 
-    const query =
-        \\SELECT rowid,name,rating
-        \\FROM entries WHERE group_id = ?
-        \\ORDER BY RANDOM() LIMIT 2
-    ;
-    var stmt = try self.db().prepare(query);
-    defer stmt.deinit();
-
-    const Row = struct {
-        rowid: i64,
-        name: []u8,
-        rating: i64,
+    const full: []MatchmakingRow = blk: {
+        // don't want to do the random selection in DB (supposedly expensive)
+        // not selecting first N `ORDER BY matches` because I think there is unfairness
+        // should keep cached groups at some point
+        var stmt = try self.db().prepare(
+            \\SELECT rowid,rating,matches
+            \\FROM entries WHERE group_id = ?
+        );
+        defer stmt.deinit();
+        break :blk try stmt.all(MatchmakingRow, arena.allocator(), .{}, .{ .group_id = id });
     };
-    const data = try stmt.all(
-        Row,
-        arena.allocator(),
-        .{},
-        .{ .group_id = id },
-    );
-    if (data.len != 2) return error.NotFound;
+    if (full.len < 2) return error.NotFound;
+
+    const preselect_size = 8;
+    const preselected = try preselect(full, preselect_size);
+    const selected = try matchmake(preselected);
 
     const rand = try Rand.get();
     const match_id = rand.int(u48);
     const match_sid = try sidFromId(match_id);
 
+    const final_match = blk: {
+        var stmt = try self.db().prepare(
+            \\SELECT rowid,name,rating,img
+            \\FROM entries WHERE rowid IN (?, ?)
+        );
+        defer stmt.deinit();
+        break :blk try stmt.all(struct { rowid: i64, name: []u8, rating: i64, img: []u8 }, arena.allocator(), .{}, .{ selected[0].rowid, selected[1].rowid });
+    };
+    if (final_match.len < 2) return error.NotFound;
+
     // what the client will get back
     const ret = .{
         .match_id = match_sid,
-        .l = .{ .name = data[0].name, .rating = data[0].rating },
-        .r = .{ .name = data[1].name, .rating = data[1].rating },
+        .l = .{ .name = final_match[0].name, .rating = final_match[0].rating, .img = final_match[0].img },
+        .r = .{ .name = final_match[1].name, .rating = final_match[1].rating, .img = final_match[1].img },
     };
 
     // what we store
     const store = .{
-        .l_rowid = data[0].rowid,
-        .r_rowid = data[1].rowid,
+        .l_rowid = final_match[0].rowid,
+        .r_rowid = final_match[1].rowid,
         .timestamp = std.time.timestamp(),
     };
 
@@ -232,6 +237,92 @@ pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
     }
 
     return std.json.stringifyAlloc(self.alloc, ret, .{});
+}
+
+/// preselect random `n` rows
+/// modifies `list`
+fn preselect(list: []MatchmakingRow, n: usize) ![]MatchmakingRow {
+    if (list.len <= n) return list;
+    const rng = try Rand.get();
+
+    if (list.len >= n * 2) {
+        // move n random lines to the top
+        // selecting random lines to be returned
+        for (0..n) |i| {
+            // random index from range [i+1, len)
+            const other = rng.uintLessThanBiased(usize, list.len - i - 1) + i + 1;
+            std.mem.swap(MatchmakingRow, &list[i], &list[other]);
+        }
+    } else {
+        // move len-n random lines to the bottom
+        // selecting random lines NOT to be returned
+        for (list.len..n) |i| {
+            // random index from range [0, i-1)
+            const other = rng.uintLessThanBiased(usize, i - 1);
+            std.mem.swap(MatchmakingRow, &list[i - 1], &list[other]);
+        }
+    }
+
+    return list[0..n];
+}
+
+/// select a match
+/// based on matches, close elo, randomness
+/// modifies `list`
+/// O(n^2) -> preselect the list
+fn matchmake(list: []MatchmakingRow) ![2]MatchmakingRow {
+    if (list.len <= 2) return .{ list[0], list[1] };
+
+    const rng = try Rand.get();
+
+    // higher factor = higher influence on matchmaking selection
+    const skill_weight = 1.0;
+    const matches_weight = 1.2;
+    const random_weight = 1.0;
+
+    const skill_K: f64 = 400; // skill diff where score becomes 0 (linear with minimum)
+    const matches_K: f64 = 20; // extra matches where score becomes 0 (linear with minimum)
+
+    var min_matches = list[0].matches;
+    for (list) |*e| {
+        if (min_matches > e.matches)
+            min_matches = e.matches;
+    }
+
+    var canidate: [2]usize = .{ 0, 1 };
+    var max_score = std.math.floatMin(f64);
+    // for every combo calc a score and keep the 2 highest
+    for (0..list.len) |i| {
+        for (i + 1..list.len) |j| {
+            const skill_diff: f64 = @floatFromInt(@abs(list[i].rating - list[j].rating));
+            const extra_matches: f64 = @floatFromInt((list[i].matches - min_matches) + (list[j].matches - min_matches));
+
+            const skill_score = if (skill_diff < skill_K) (1 - skill_diff / skill_K) else 0;
+            const matches_score = if (extra_matches < matches_K) (1 - extra_matches / matches_K) else 0;
+            const random_score = rng.float(f64);
+
+            const score = skill_score * skill_weight + matches_score * matches_weight + random_score * random_weight;
+            if (score > max_score) {
+                max_score = score;
+                canidate = .{ i, j };
+            }
+
+            //std.debug.print("{}-{} | ", .{ i, j });
+            //std.debug.print("{d:3.0}S {d:3.0}M | ", .{ skill_diff, extra_matches });
+            //std.debug.print(
+            //    "{d:5.3}*{d:.1} + {d:5.3}*{d:.1} + {d:5.3}*{d:.1}   =   ",
+            //    .{ skill_score, skill_weight, matches_score, matches_weight, random_score, random_weight },
+            //);
+            //std.debug.print(
+            //    "  {d:5.3} + {d:5.3} + {d:5.3}   =   {d:5.3}\n",
+            //    .{ skill_score * skill_weight, matches_score * matches_weight, random_score * random_weight, score },
+            //);
+        }
+    }
+
+    //std.debug.print("WINNER {}-{}\n", .{ canidate[0], canidate[1] });
+
+    return .{ list[canidate[0]], list[canidate[1]] };
 }
 
 const Winner = enum { left, right, draw };
@@ -277,7 +368,7 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
     defer stmt_get.deinit();
     var stmt_set = try self.db().prepare(
         \\UPDATE entries
-        \\SET rating = @rating
+        \\SET rating = @rating, matches = matches + 1
         \\WHERE rowid == @rowid
     );
     defer stmt_set.deinit();

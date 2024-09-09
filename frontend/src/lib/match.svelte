@@ -40,13 +40,13 @@
     const match_id = $match_data.match_id;
     last_winner.set(winner);
     rating_change.set({});
-    fetchMatch(1000);
     const res = await fetch(
       PUBLIC_ENDPOINT_URL + '/result?' + new URLSearchParams({ match_id: match_id, result: winner })
     );
     if (!res.ok) {
       throw Error(res.status + ' - ' + res.statusText);
     }
+    fetchMatch(1000);
     const s = await res.json();
     rating_change.set(s);
     matchCompleted();
@@ -91,7 +91,7 @@
       <Card
         on:click={() => vote('l')}
         href="#"
-        img="/placeholder.png"
+        img="{$match_data.l.img || '/placeholder.png'}"
         imgClass="h-52 object-cover bg-gray-200 dark:bg-gray-600"
         class="size-full h-96 w-96"
       >
@@ -104,8 +104,8 @@
       <Card
         on:click={() => vote('r')}
         href="#"
-        img="https://i.redd.it/2wttjntmyfhd1.png"
-        imgClass="h-52 object-cover"
+        img="{$match_data.r.img || '/placeholder.png'}"
+        imgClass="h-52 object-cover bg-gray-200 dark:bg-gray-600"
         class="size-full h-96 w-96 text-left"
       >
         <div class="mt-5 text-left">
