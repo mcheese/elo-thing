@@ -9,6 +9,7 @@ pub const EloError = error{
     BadId,
     BadJson,
     AlreadyExists,
+    NoResult,
 };
 
 const Entry = struct {
@@ -17,10 +18,10 @@ const Entry = struct {
 };
 const Group = []Entry;
 
+// in-mem saved per match
 const Match = struct {
-    const Side = struct { rowid: i64, rating: i64 };
-    l: Side,
-    r: Side,
+    l_rowid: i64,
+    r_rowid: i64,
     timestamp: i64,
 };
 
@@ -216,8 +217,8 @@ pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
 
     // what we store
     const store = .{
-        .l = .{ .rowid = data[0].rowid, .rating = data[0].rating },
-        .r = .{ .rowid = data[1].rowid, .rating = data[1].rating },
+        .l_rowid = data[0].rowid,
+        .r_rowid = data[1].rowid,
         .timestamp = std.time.timestamp(),
     };
 
@@ -230,7 +231,15 @@ pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
     return std.json.stringifyAlloc(self.alloc, ret, .{});
 }
 
-pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) !void {
+const Winner = enum { left, right, draw };
+
+/// finish match
+/// adjusts elo based on result
+/// result is 'l','r','d' for left, right, draw, anything else to cancel match
+/// returns changes in rating, like:
+///     '{ "l_change":13, "r_change":-12 }'
+/// free() result using Elo's alloc
+pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
     const match_id = try idFromSid(match_sid);
     const match = blk: {
         self.active_matches_mtx.lock();
@@ -243,15 +252,74 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) !void {
         }
     };
 
-    switch (result) {
-        'l' => {},
-        'r' => {},
-        'd' => {},
-        else => { return; },
-    }
+    const winner: Winner = switch (result) {
+        'l' => .left,
+        'r' => .right,
+        'd' => .draw,
+        else => {
+            return try self.alloc.dupe(u8,
+                \\{"l_change":0,"r_change":0}
+            );
+        },
+    };
 
-    _=match;
+    var stmt_get = try self.db().prepare(
+        \\SELECT 
+        \\  MAX(CASE WHEN rowid = ? THEN rating END) AS l,
+        \\  MAX(CASE WHEN rowid = ? THEN rating END) AS r
+        \\FROM entries
+        \\WHERE rowid IN (?, ?)
+    );
+    defer stmt_get.deinit();
+    var stmt_set = try self.db().prepare(
+        \\UPDATE entries
+        \\SET rating = @rating
+        \\WHERE rowid == @rowid
+    );
+    defer stmt_set.deinit();
 
+    // transaction start
+    var savepoint = try self.db().savepoint("finMatch");
+    defer savepoint.rollback();
+
+    const rating = try stmt_get.one(struct { l: i64, r: i64 }, .{}, .{
+        match.l_rowid,
+        match.r_rowid,
+        match.l_rowid,
+        match.r_rowid,
+    }) orelse {
+        return error.NotFound;
+    };
+    const new_rating = adjustRatings(rating.l, rating.r, winner);
+    try stmt_set.exec(.{}, .{ .rating = new_rating.l, .rowid = match.l_rowid });
+    stmt_set.reset();
+    try stmt_set.exec(.{}, .{ .rating = new_rating.r, .rowid = match.r_rowid });
+
+    // end transaction
+    savepoint.commit();
+
+    return std.json.stringifyAlloc(self.alloc, .{
+        .l_change = new_rating.l - rating.l,
+        .r_change = new_rating.r - rating.r,
+    }, .{});
+}
+
+fn adjustRatings(l: i64, r: i64, winner: Winner) struct { l: i64, r: i64 } {
+    const k = 16;
+    return switch (winner) {
+        .left => .{
+            .l = l + k,
+            .r = r - k,
+        },
+        .right => .{
+            .l = l - k,
+            .r = r + k,
+        },
+        .draw => .{
+            .l = l,
+            .r = r,
+        },
+    };
 }
 
 /// valid SID is 8 [alnum,-,_] characters

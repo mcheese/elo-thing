@@ -60,10 +60,9 @@ fn ep_group(req: *const zap.Request, path: []const u8) !void {
     }
     const id = path[1..];
 
-    try req.setContentType(.JSON);
     const s = try elo.getGroup(id);
     defer elo.alloc.free(s);
-    try req.sendBody(s);
+    try req.sendJson(s);
 }
 
 fn ep_match(req: *const zap.Request, path: []const u8) !void {
@@ -72,10 +71,9 @@ fn ep_match(req: *const zap.Request, path: []const u8) !void {
     }
     const id = path[1..];
 
-    try req.setContentType(.JSON);
     const s = try elo.getMatch(id);
     defer elo.alloc.free(s);
-    try req.sendBody(s);
+    try req.sendJson(s);
 }
 
 fn ep_result(req: *const zap.Request, _: []const u8) !void {
@@ -92,7 +90,7 @@ fn ep_result(req: *const zap.Request, _: []const u8) !void {
     if (match_sid == null or result == null or result.?.str.len < 1)
         return req.setStatus(.bad_request);
 
-    try elo.finMatch(match_sid.?.str, result.?.str[0]);
-
-    req.setStatus(.ok);
+    const s = try elo.finMatch(match_sid.?.str, result.?.str[0]);
+    defer elo.alloc.free(s);
+    try req.sendJson(s);
 }
