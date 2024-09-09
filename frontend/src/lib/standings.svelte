@@ -14,13 +14,14 @@
   import { PUBLIC_ENDPOINT_URL } from '$env/static/public';
 
   export let id: string;
+  export const refresh = () => fetchStandings();
 
-  async function getStandings() {
+  async function fetchStandings() {
     const res = await fetch(PUBLIC_ENDPOINT_URL + '/group/' + id);
     if (!res.ok) {
       throw Error(res.status + ' - ' + res.statusText);
     }
-    return await res
+    const s = await res
       .json()
       .then((j) => {
         return [...j].sort((a, b) => {
@@ -38,18 +39,16 @@
       .then((j) => {
         return j.map((v, i) => ({ ...v, rank: i + 1 }));
       });
+      sortItems.set(s);
   }
 
   const sortKey = writable('rank'); // default sort key
   const sortDirection = writable(1); // default sort direction (ascending)
-  const sortItems = writable([]);
+  const sortItems = writable([{}]);
 
   let promise = new Promise(() => {});
   onMount(() => {
-    promise = (async () => {
-      const s = await getStandings();
-      sortItems.set(s);
-    })();
+    promise = fetchStandings();
   });
 
   // Define a function to sort the items

@@ -6,15 +6,21 @@
     ChevronSortOutline
   } from 'flowbite-svelte-icons';
   import { writable } from 'svelte/store';
-  import { onMount } from 'svelte';
+  import { onMount, createEventDispatcher } from 'svelte';
   import { PUBLIC_ENDPOINT_URL } from '$env/static/public';
 
   export let id: string;
 
-  const match_data = writable();
+  const dispatch = createEventDispatcher();
+
+  function matchCompleted() {
+    dispatch('matchCompleted', null);
+  }
+
+  const match_data = writable({});
 
   let promise = new Promise(() => {});
-  function getMatch(sleep: number) {
+  function fetchMatch(sleep: number) {
     promise = (async () => {
       const wait = new Promise((r) => setTimeout(r, sleep));
       const res = await fetch(PUBLIC_ENDPOINT_URL + '/match/' + id);
@@ -26,20 +32,33 @@
       await wait;
     })();
   }
-  onMount(() => getMatch(0));
+  onMount(() => fetchMatch(0));
 
   const last_winner = writable('d');
+  const rating_change = writable({});
   async function vote(winner: string) {
     const match_id = $match_data.match_id;
     last_winner.set(winner);
-    getMatch(1000);
+    rating_change.set({});
+    fetchMatch(1000);
     const res = await fetch(
       PUBLIC_ENDPOINT_URL + '/result?' + new URLSearchParams({ match_id: match_id, result: winner })
     );
     if (!res.ok) {
       throw Error(res.status + ' - ' + res.statusText);
     }
+    const s = await res.json();
+    rating_change.set(s);
+    matchCompleted();
   }
+
+  function numColor(num: number) {
+    return num ? (num < 0 ? 'text-red-700' : 'text-lime-600') : 'text-gray-500';
+  }
+  function numText(num: number) {
+    return num == undefined ? '' : num > 0 ? '+' + num : num;
+  }
+
 </script>
 
 <div class="flex w-fit max-w-full flex-col">
@@ -51,14 +70,22 @@
         class="m-0 h-96 w-screen content-center text-center"
         style="max-width:824px"
       >
-        <Spinner color="green" class="mb-12 size-14" />
-        {#if $last_winner === 'l'}
-          <ChevronDoubleLeftOutline class="mx-auto size-24" />
-        {:else if $last_winner === 'r'}
-          <ChevronDoubleRightOutline class="mx-auto size-24" />
-        {:else}
-          <ChevronSortOutline class="mx-auto size-24" />
-        {/if}
+        <!--<Spinner color="green" class="mb-12 size-14" /> -->
+        <div class="flex flex-row justify-evenly">
+          <p class="mt-6 w-12 text-5xl font-bold {numColor($rating_change.l_change)}">
+            {numText($rating_change.l_change)}
+          </p>
+          {#if $last_winner === 'l'}
+            <ChevronDoubleLeftOutline class="size-24" />
+          {:else if $last_winner === 'r'}
+            <ChevronDoubleRightOutline class="size-24" />
+          {:else}
+            <ChevronSortOutline class="size-24" />
+          {/if}
+          <p class="mt-6 w-12 text-5xl font-bold {numColor($rating_change.r_change)}">
+            {numText($rating_change.r_change)}
+          </p>
+        </div>
       </Alert>
     {:then}
       <Card
