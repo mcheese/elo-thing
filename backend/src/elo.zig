@@ -235,10 +235,11 @@ pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
 }
 
 const Winner = enum { left, right, draw };
+const RatingPair = struct { l: i64, r: i64 };
 
 /// finish match
 /// adjusts elo based on result
-/// result is 'l','r','d' for left, right, draw, anything else to cancel match
+/// result is 'l','r','d' for left, right, draw; anything else to cancel match
 /// returns changes in rating, like:
 ///     '{ "l_change":13, "r_change":-12 }'
 /// free() result using Elo's alloc
@@ -285,7 +286,7 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
     var savepoint = try self.db().savepoint("finMatch");
     defer savepoint.rollback();
 
-    const rating = try stmt_get.one(struct { l: i64, r: i64 }, .{}, .{
+    const rating = try stmt_get.one(RatingPair, .{}, .{
         match.l_rowid,
         match.r_rowid,
         match.l_rowid,
@@ -293,7 +294,7 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
     }) orelse {
         return error.NotFound;
     };
-    const new_rating = adjustRatings(rating.l, rating.r, winner);
+    const new_rating = adjustRatings(rating, winner);
     try stmt_set.exec(.{}, .{ .rating = new_rating.l, .rowid = match.l_rowid });
     stmt_set.reset();
     try stmt_set.exec(.{}, .{ .rating = new_rating.r, .rowid = match.r_rowid });
@@ -307,21 +308,39 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
     }, .{});
 }
 
-fn adjustRatings(l: i64, r: i64, winner: Winner) struct { l: i64, r: i64 } {
-    const k = 16;
-    return switch (winner) {
-        .left => .{
-            .l = l + k,
-            .r = r - k,
-        },
-        .right => .{
-            .l = l - k,
-            .r = r + k,
-        },
-        .draw => .{
-            .l = l,
-            .r = r,
-        },
+/// actual elo calc
+///
+/// ref: https://en.wikipedia.org/wiki/Elo_rating_system#Mathematical_details
+///
+///                     1
+///     E_a = ---------------------
+///                 (R_b - R_a)/400
+///           1 + 10
+///
+///     E_a: expected chance for a to win
+///     E_b = 1 - E_a
+///
+///     new rating: R' = R' + K(S - E)
+///     K = max adjustment
+///     S = score (0: lose, 0.5: draw, 1: win)
+///
+fn adjustRatings(rating: RatingPair, winner: Winner) RatingPair {
+    const k = 32; // could lower this towards 16 with amount of matches
+
+    const exp = @as(f64, @floatFromInt(rating.r - rating.l)) / 400;
+    const e_l = 1 / (1 + std.math.pow(f64, 10, exp));
+    const e_r = 1 - e_l;
+
+    const s_l: f64 = switch (winner) {
+        .left => 1,
+        .right => 0,
+        .draw => 0.5,
+    };
+    const s_r = 1 - s_l;
+
+    return .{
+        .l = rating.l + @as(i64, @intFromFloat(k * (s_l - e_l))),
+        .r = rating.r + @as(i64, @intFromFloat(k * (s_r - e_r))),
     };
 }
 
