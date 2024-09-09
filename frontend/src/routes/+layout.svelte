@@ -4,6 +4,4 @@
 </script>
 
 <Header />
-<div class="mx-auto my-3 h-screen w-screen">
-  <slot />
-</div>
+<slot />
