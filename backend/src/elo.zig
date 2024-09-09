@@ -69,7 +69,8 @@ pub fn init(alloc: std.mem.Allocator, db_path: []const u8, max_threads: u32) !Se
         .active_matches = std.AutoHashMap(u48, Match).init(alloc),
         .active_matches_mtx = std.Thread.Mutex{},
     };
-    _ = db(&this); // ensure 1 initial init
+    const a_db = db(&this); // ensure 1 initial init
+    _ = try a_db.pragma(void, .{}, "busy_timeout", "3000"); // mitigate most SQLITE_BUSY
     return this;
 }
 
