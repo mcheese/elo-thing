@@ -5,5 +5,5 @@
 
 A website to vote on things in a list.
 
-Compare two things at a time and vote which is better. The list is ranked by Elo. Vote with your friends.
+Compare two things at a time. Vote which is better. Ranked by Elo. Vote with your friends.
 
