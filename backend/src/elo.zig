@@ -47,7 +47,10 @@ fn db(self: *Self) *sqlite.Db {
         if (count >= self.db_pool.len) @panic("too many threads");
         ThreadIndex.index = count;
         self.db_pool[count] = sqlite.Db.init(self.db_options) catch {
-            @panic("sqlite init in extra thread failed");
+            @panic("sqlite init failed");
+        };
+        _ = self.db_pool[count].pragma(void, .{}, "busy_timeout", "3000") catch { // mitigate most SQLITE_BUSY
+            @panic("sqlite pragma failed");
         };
         return &self.db_pool[count];
     }
@@ -69,8 +72,7 @@ pub fn init(alloc: std.mem.Allocator, db_path: []const u8, max_threads: u32) !Se
         .active_matches = std.AutoHashMap(u48, Match).init(alloc),
         .active_matches_mtx = std.Thread.Mutex{},
     };
-    const a_db = db(&this); // ensure 1 initial init
-    _ = try a_db.pragma(void, .{}, "busy_timeout", "3000"); // mitigate most SQLITE_BUSY
+    _ = db(&this); // ensure 1 initial init
     return this;
 }
 
