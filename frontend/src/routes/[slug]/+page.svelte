@@ -6,7 +6,7 @@
 </script>
 
 <div class="flex flex-wrap justify-center">
-  <div class="p-1 w-screen max-w-fit">
+  <div class="max-w-fit" style="width:95vw">
     <Match bind:id={$page.params.slug} />
   </div>
   <div class="m-3">

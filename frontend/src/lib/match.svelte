@@ -11,7 +11,7 @@
 
   export let id: string;
 
-  const match_data = writable({});
+  const match_data = writable();
 
   let promise = new Promise(() => {});
   function getMatch(sleep: number) {
@@ -37,7 +37,7 @@
       PUBLIC_ENDPOINT_URL + '/result?' + new URLSearchParams({ match_id: match_id, result: winner })
     );
     if (!res.ok) {
-        throw Error(res.status + ' - ' + res.statusText);
+      throw Error(res.status + ' - ' + res.statusText);
     }
   }
 </script>
@@ -64,12 +64,14 @@
       <Card
         on:click={() => vote('l')}
         href="#"
-        img="https://www.svgrepo.com/show/508699/landscape-placeholder.svg"
-        imgClass="h-52 object-cover"
-        class="size-full h-96 w-96 text-right"
+        img="/placeholder.png"
+        imgClass="h-52 object-cover bg-gray-200 dark:bg-gray-600"
+        class="size-full h-96 w-96"
       >
-        <p class="mt-auto text-lg font-thin">{$match_data.l.rating}</p>
-        <p class="mb-3 text-2xl font-bold">{$match_data.l.name}</p>
+        <div class="mt-5 text-right">
+          <p class="text-xl font-thin">{$match_data.l.rating}</p>
+          <p class="text-2xl font-bold">{$match_data.l.name}</p>
+        </div>
       </Card>
       <Button on:click={() => vote('d')} color="green" class="mx-2 w-10">Draw</Button>
       <Card
@@ -79,8 +81,10 @@
         imgClass="h-52 object-cover"
         class="size-full h-96 w-96 text-left"
       >
-        <p class="mt-auto text-lg font-thin">{$match_data.r.rating}</p>
-        <p class="mb-3 text-2xl font-bold">{$match_data.r.name}</p>
+        <div class="mt-5 text-left">
+          <p class="text-xl font-thin">{$match_data.r.rating}</p>
+          <p class="text-2xl font-bold">{$match_data.r.name}</p>
+        </div>
       </Card>
     {:catch err}
       <Alert
