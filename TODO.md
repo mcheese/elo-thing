@@ -1,15 +1,21 @@
-# Things that should be done
+## Things that should be done
 
-Keeping track for myself.
+> [!NOTE]
+> Keeping track for myself.
 
-Functionality
-- [ ] Captchas
-- [ ] HTTPs
+### Functionality
+  - [ ] Elo
+  - [ ] Matchmaking
+  - [ ] Limit votes
+  - [ ] Create lists
+  - [ ] Images
 
-Security
-- [ ] CORS
-- 
+### Security
+  - [ ] CORS
+  - [ ] Captchas
+  - [ ] HTTPS
+  - [ ] Ask for external images
 
-Optimization
-- [ ] Figure out DB, worth swapping to Postgres?
-
+### Optimization
+  - [ ] Cache in endpoint
+  - [ ] Rethink DB - Postgres?
