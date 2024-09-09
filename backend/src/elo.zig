@@ -17,24 +17,34 @@ const Entry = struct {
 };
 const Group = []Entry;
 
+const Match = struct {
+    const Side = struct { rowid: i64, rating: i64 };
+    l: Side,
+    r: Side,
+    timestamp: i64,
+};
+
 alloc: std.mem.Allocator,
 db_options: sqlite.InitOptions,
 db_pool: []sqlite.Db,
+active_matches: std.AutoHashMap(u48, Match),
+active_matches_mtx: std.Thread.Mutex,
+
+const ThreadIndex = struct {
+    var counter = std.atomic.Value(u32).init(0);
+    threadlocal var index: ?u32 = null;
+};
 
 /// get thread specific sqlite.Db
 fn db(self: *Self) *sqlite.Db {
     // static values
-    const State = struct {
-        var counter = std.atomic.Value(u32).init(0);
-        threadlocal var index: ?u32 = null;
-    };
 
-    if (State.index) |i| {
+    if (ThreadIndex.index) |i| {
         return &self.db_pool[i];
     } else {
-        const count = State.counter.fetchAdd(1, .monotonic);
+        const count = ThreadIndex.counter.fetchAdd(1, .monotonic);
         if (count >= self.db_pool.len) @panic("too many threads");
-        State.index = count;
+        ThreadIndex.index = count;
         self.db_pool[count] = sqlite.Db.init(self.db_options) catch {
             @panic("sqlite init in extra thread failed");
         };
@@ -55,6 +65,8 @@ pub fn init(alloc: std.mem.Allocator, db_path: []const u8, max_threads: u32) !Se
             .threading_mode = .MultiThread,
         },
         .db_pool = try alloc.alloc(sqlite.Db, max_threads),
+        .active_matches = std.AutoHashMap(u48, Match).init(alloc),
+        .active_matches_mtx = std.Thread.Mutex{},
     };
     _ = db(&this); // ensure 1 initial init
     return this;
@@ -62,9 +74,12 @@ pub fn init(alloc: std.mem.Allocator, db_path: []const u8, max_threads: u32) !Se
 
 /// make sure no more threads are accessing the db before calling
 pub fn deinit(self: *Self) void {
-    for (self.db_pool) |*d| d.deinit();
+    // fails on starting another instance...
+    for (0..ThreadIndex.counter.load(.monotonic)) |i|
+        self.db_pool[i].deinit();
     self.alloc.free(self.db_pool);
     self.alloc.free(self.db_options.mode.File);
+    self.active_matches.deinit();
 }
 
 /// delte a group
@@ -119,6 +134,8 @@ pub fn addGroup(self: *Self, sid: []const u8, json: []const u8) !void {
 ///     const grp = try elo.getGroup(sid);
 ///     defer elo.alloc.free(grp);
 pub fn getGroup(self: *Self, sid: []const u8) ![]const u8 {
+    // TODO: cache this
+
     const id = try idFromSid(sid);
 
     const query =
@@ -138,8 +155,103 @@ pub fn getGroup(self: *Self, sid: []const u8) ![]const u8 {
     );
     if (data.len == 0) return error.NotFound;
 
-    const ret = std.json.stringifyAlloc(self.alloc, data, .{});
-    return ret;
+    return std.json.stringifyAlloc(self.alloc, data, .{});
+}
+
+const Rand = struct {
+    threadlocal var rng: ?std.rand.DefaultPrng = null;
+    fn get() !std.rand.Random {
+        if (rng == null) {
+            rng = std.rand.DefaultPrng.init(blk: {
+                var seed: u64 = undefined;
+                try std.posix.getrandom(std.mem.asBytes(&seed));
+                break :blk seed;
+            });
+        }
+        return rng.?.random();
+    }
+};
+
+pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
+    // TODO: some form of matchmaking, also remember number of matches per item
+    // TODO: limit this per user/session
+    // TODO: cleanup unused active_matches
+
+    const id = try idFromSid(sid);
+
+    var arena = std.heap.ArenaAllocator.init(self.alloc);
+    defer arena.deinit();
+
+    const query =
+        \\SELECT rowid,name,rating
+        \\FROM entries WHERE group_id = ?
+        \\ORDER BY RANDOM() LIMIT 2
+    ;
+    var stmt = try self.db().prepare(query);
+    defer stmt.deinit();
+
+    const Row = struct {
+        rowid: i64,
+        name: []u8,
+        rating: i64,
+    };
+    const data = try stmt.all(
+        Row,
+        arena.allocator(),
+        .{},
+        .{ .group_id = id },
+    );
+    if (data.len != 2) return error.NotFound;
+
+    const rand = try Rand.get();
+    const match_id = rand.int(u48);
+    const match_sid = try sidFromId(match_id);
+
+    // what the client will get back
+    const ret = .{
+        .match_id = match_sid,
+        .l = .{ .name = data[0].name, .rating = data[0].rating },
+        .r = .{ .name = data[1].name, .rating = data[1].rating },
+    };
+
+    // what we store
+    const store = .{
+        .l = .{ .rowid = data[0].rowid, .rating = data[0].rating },
+        .r = .{ .rowid = data[1].rowid, .rating = data[1].rating },
+        .timestamp = std.time.timestamp(),
+    };
+
+    {
+        self.active_matches_mtx.lock();
+        defer self.active_matches_mtx.unlock();
+        try self.active_matches.put(match_id, store);
+    }
+
+    return std.json.stringifyAlloc(self.alloc, ret, .{});
+}
+
+pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) !void {
+    const match_id = try idFromSid(match_sid);
+    const match = blk: {
+        self.active_matches_mtx.lock();
+        defer self.active_matches_mtx.unlock();
+
+        if (self.active_matches.fetchRemove(match_id)) |kv| {
+            break :blk kv.value;
+        } else {
+            return error.NotFound;
+        }
+    };
+
+    switch (result) {
+        'l' => {},
+        'r' => {},
+        'd' => {},
+        else => { return; },
+    }
+
+    _=match;
+
 }
 
 /// valid SID is 8 [alnum,-,_] characters
@@ -157,9 +269,7 @@ fn idFromSid(str: []const u8) !u48 {
 
 // valid id is lower 48 bit
 // url-base64-encodes to 10 [alnum,-,_] chars
-fn sidFromId(id: u64) ![8]u8 {
-    if (id >= (1 << 48)) return error.BadId;
-
+fn sidFromId(id: u48) ![8]u8 {
     var id_bytes: [8]u8 = undefined;
     std.mem.writeInt(u64, &id_bytes, id, .little);
 

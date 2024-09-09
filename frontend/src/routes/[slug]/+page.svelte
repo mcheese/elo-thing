@@ -1,15 +1,13 @@
 <script>
   import Standings from '$lib/standings.svelte';
+  import Match from '$lib/match.svelte';
 
   import { page } from '$app/stores';
-  import { Card } from 'flowbite-svelte';
 </script>
 
 <div class="flex flex-wrap justify-center">
-  <div class="m-3">
-    <Card img="https://i.redd.it/2wttjntmyfhd1.png">
-      <p class="mb-3 text-2xl font-bold">xdd</p>
-    </Card>
+  <div class="m-3 w-screen max-w-fit">
+    <Match bind:id={$page.params.slug} />
   </div>
   <div class="m-3">
     <Standings bind:id={$page.params.slug} />

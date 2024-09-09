@@ -5,7 +5,8 @@
     TableBodyCell,
     TableBodyRow,
     TableHead,
-    TableHeadCell
+    TableHeadCell,
+    Spinner
   } from 'flowbite-svelte';
   import { ChevronSortOutline, ChevronDownOutline, ChevronUpOutline } from 'flowbite-svelte-icons';
   import { writable } from 'svelte/store';
@@ -17,23 +18,26 @@
   async function getStandings() {
     const res = await fetch(PUBLIC_ENDPOINT_URL + '/group/' + id);
     if (!res.ok) {
-      throw res.statusText;
+      throw Error(res.status + ' - ' + res.statusText);
     }
-    return await res.json().then((j) => {
-      return [...j].sort((a, b) => {
-        const aVal: number = a['rating'];
-        const bVal: number = b['rating'];
-        if (aVal < bVal) {
-          return 1;
-        } else if (aVal > bVal) {
-          return -1;
-        } else {
-          return 0;
-        }
+    return await res
+      .json()
+      .then((j) => {
+        return [...j].sort((a, b) => {
+          const aVal: number = a['rating'];
+          const bVal: number = b['rating'];
+          if (aVal < bVal) {
+            return 1;
+          } else if (aVal > bVal) {
+            return -1;
+          } else {
+            return 0;
+          }
+        });
+      })
+      .then((j) => {
+        return j.map((v, i) => ({ ...v, rank: i + 1 }));
       });
-    }).then((j) => {
-      return j.map((v,i) => ({...v, rank: i+1}));
-    });
   }
 
   const sortKey = writable('rank'); // default sort key
@@ -76,9 +80,9 @@
   }
 </script>
 
-<Table hoverable={true} shadow>
+<Table hoverable={true} shadow class="w-96">
   <TableHead>
-    <TableHeadCell on:click={() => sortTable('rank')}>
+    <TableHeadCell class="!p-2" on:click={() => sortTable('rank')}>
       <span class="flex">
         Rank
         {#if $sortKey === 'rank'}
@@ -92,7 +96,7 @@
         {/if}
       </span>
     </TableHeadCell>
-    <TableHeadCell on:click={() => sortTable('name')}>
+    <TableHeadCell class="!p-0" on:click={() => sortTable('name')}>
       <span class="flex">
         Name
         {#if $sortKey === 'name'}
@@ -106,7 +110,7 @@
         {/if}
       </span>
     </TableHeadCell>
-    <TableHeadCell on:click={() => sortTable('rating')}
+    <TableHeadCell class="!p-3" on:click={() => sortTable('rating')}
       ><span class="flex">
         Rating
         {#if $sortKey === 'rating'}
@@ -121,17 +125,27 @@
       </span>
     </TableHeadCell>
   </TableHead>
-  {#await promise then}
-    <TableBody tableBodyClass="divide-y">
+  <TableBody tableBodyClass="divide-y">
+    {#await promise}
+      <TableBodyRow>
+        <TableBodyCell colspan="3" class="text-center">
+          <Spinner color="green" class="size-8" />
+        </TableBodyCell>
+      </TableBodyRow>
+    {:then}
       {#each $sortItems as s}
         <TableBodyRow>
           <TableBodyCell>{s.rank}</TableBodyCell>
-          <TableBodyCell>{s.name}</TableBodyCell>
+          <TableBodyCell class="!p-0">{s.name}</TableBodyCell>
           <TableBodyCell>{s.rating}</TableBodyCell>
         </TableBodyRow>
       {/each}
-    </TableBody>
-  {:catch err}
-    <p class="m-3 font-mono text-red-600">> Error: {err}</p>
-  {/await}
+    {:catch err}
+      <TableBodyRow>
+        <TableBodyCell colspan="3">
+          <p class="font-mono text-red-900 dark:text-red-500">> Error: {err.message}</p>
+        </TableBodyCell>
+      </TableBodyRow>
+    {/await}
+  </TableBody>
 </Table>

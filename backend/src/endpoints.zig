@@ -6,6 +6,8 @@ const Self = @This();
 
 const routes = [_]Route{
     .{ .path = "/group", .handler = ep_group },
+    .{ .path = "/match", .handler = ep_match },
+    .{ .path = "/result", .handler = ep_result },
 };
 
 // global/static because passing context through the request handler in Zap is not recommended
@@ -57,8 +59,40 @@ fn ep_group(req: *const zap.Request, path: []const u8) !void {
         return req.setStatus(.bad_request);
     }
     const id = path[1..];
+
+    try req.setContentType(.JSON);
     const s = try elo.getGroup(id);
     defer elo.alloc.free(s);
-    try req.setContentType(.JSON);
     try req.sendBody(s);
+}
+
+fn ep_match(req: *const zap.Request, path: []const u8) !void {
+    if (path.len < 2 or path[0] != '/') {
+        return req.setStatus(.bad_request);
+    }
+    const id = path[1..];
+
+    try req.setContentType(.JSON);
+    const s = try elo.getMatch(id);
+    defer elo.alloc.free(s);
+    try req.sendBody(s);
+}
+
+fn ep_result(req: *const zap.Request, _: []const u8) !void {
+    var arena = std.heap.ArenaAllocator.init(elo.alloc);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    if (req.body != null)
+        try req.parseBody();
+    req.parseQuery();
+
+    const match_sid = try req.getParamStr(alloc, "match_id", false);
+    const result = try req.getParamStr(alloc, "result", false);
+    if (match_sid == null or result == null or result.?.str.len < 1)
+        return req.setStatus(.bad_request);
+
+    try elo.finMatch(match_sid.?.str, result.?.str[0]);
+
+    req.setStatus(.ok);
 }

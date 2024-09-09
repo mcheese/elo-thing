@@ -27,7 +27,7 @@ pub fn main() !void {
         .threads = 4,
         .workers = 1,
         .db_file = std.mem.span(std.os.argv[1]),
-        .log_connections = false,
+        .log_connections = true,
     };
 
     var elo = try Elo.init(alloc, cfg.db_file, 1 + cfg.threads * cfg.workers);
