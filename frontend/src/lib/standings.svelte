@@ -48,7 +48,14 @@
 
   let promise = new Promise(() => {});
   onMount(() => {
-    promise = fetchStandings();
+    promise = fetchStandings().then(() => {
+      $sortItems.forEach((e) => {
+        if (e.img) {
+          let img = new Image();
+          img.src = e.img; // this supposedly preloads?
+        }
+      });
+    });
   });
 
   // Define a function to sort the items
@@ -81,7 +88,7 @@
 
 <Table hoverable={true} shadow class="w-96">
   <TableHead>
-    <TableHeadCell class="!p-2" on:click={() => sortTable('rank')}>
+    <TableHeadCell class="pl-1" on:click={() => sortTable('rank')}>
       <span class="flex">
         Rank
         {#if $sortKey === 'rank'}
@@ -95,7 +102,7 @@
         {/if}
       </span>
     </TableHeadCell>
-    <TableHeadCell class="!p-0" on:click={() => sortTable('name')}>
+    <TableHeadCell class="px-3" on:click={() => sortTable('name')}>
       <span class="flex">
         Name
         {#if $sortKey === 'name'}
@@ -109,8 +116,8 @@
         {/if}
       </span>
     </TableHeadCell>
-    <TableHeadCell class="!p-3" on:click={() => sortTable('rating')}
-      ><span class="flex">
+    <TableHeadCell class="px-1" on:click={() => sortTable('rating')}>
+      <span class="ml-auto flex w-min">
         Rating
         {#if $sortKey === 'rating'}
           {#if $sortDirection === 1}
@@ -134,9 +141,9 @@
     {:then}
       {#each $sortItems as s}
         <TableBodyRow>
-          <TableBodyCell>{s.rank}</TableBodyCell>
-          <TableBodyCell class="!p-0">{s.name}</TableBodyCell>
-          <TableBodyCell>{s.rating}</TableBodyCell>
+          <TableBodyCell class="p-3">{s.rank}</TableBodyCell>
+          <TableBodyCell class="p-3">{s.name}</TableBodyCell>
+          <TableBodyCell class="p-3 text-right">{s.rating}</TableBodyCell>
         </TableBodyRow>
       {/each}
     {:catch err}
