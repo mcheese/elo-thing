@@ -1,7 +1,7 @@
 <script>
   import { Navbar, NavBrand, NavLi, NavUl, DarkMode, Tooltip } from 'flowbite-svelte';
   import { GithubSolid } from 'flowbite-svelte-icons';
-  import { base } from '$app/paths':
+  import { base } from '$app/paths';
 </script>
 
 <Navbar let:NavContainer class="start-0 top-0 z-20 w-full shadow-md">
