@@ -4,6 +4,8 @@ const zap = @import("zap");
 const Endpoints = @import("endpoints.zig");
 const Elo = @import("elo.zig");
 
+const is_debug = builtin.mode == .Debug;
+
 pub const std_options = .{
     // otherwise there are no info logs in release mode
     .log_level = if (builtin.mode == .Debug) .debug else .info,
@@ -23,11 +25,11 @@ pub fn main() !void {
 
     const cfg = .{
         .port = 21337,
-        .interface = "127.0.0.1",
-        .threads = 4,
+        .interface = if (is_debug) "127.0.0.1" else "0.0.0.0",
+        .threads = if (is_debug) 4 else 8,
         .workers = 1,
         .db_file = std.mem.span(std.os.argv[1]),
-        .log_connections = true,
+        .log_connections = is_debug,
     };
 
     var elo = try Elo.init(alloc, cfg.db_file, 1 + cfg.threads * cfg.workers);

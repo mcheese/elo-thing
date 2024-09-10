@@ -12,7 +12,7 @@ INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Giraffe", 1500, "h
 INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Panda", 1500, "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Grosser_Panda.JPG/640px-Grosser_Panda.JPG");
 INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Kangaroo", 1500, "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Kangaroo_Australia_01_11_2008_-_retouch.JPG/1920px-Kangaroo_Australia_01_11_2008_-_retouch.JPG");
 INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Penguin", 1500, "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Aptenodytes_forsteri_-Snow_Hill_Island%2C_Antarctica_-adults_and_juvenile-8.jpg/800px-Aptenodytes_forsteri_-Snow_Hill_Island%2C_Antarctica_-adults_and_juvenile-8.jpg");
-INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Bald Eagle", 1500, "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Weisskopf_Seeadler_haliaeetus_leucocephalus_8_amk.jpg/220px-Weisskopf_Seeadler_haliaeetus_leucocephalus_8_amk.jpg");
+INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Bald Eagle", 1500, "https://upload.wikimedia.org/wikipedia/commons/d/db/Bald_eagle_about_to_fly_in_Alaska_%282016%29.jpg");
 INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Dolphin", 1500, "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Tursiops_truncatus_01.jpg/1920px-Tursiops_truncatus_01.jpg");
 INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Great White Shark", 1500, "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Great_white_shark_Dyer_Island.jpg/1920px-Great_white_shark_Dyer_Island.jpg");
 INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Grizzly Bear", 1500, "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/GrizzlyBearJeanBeaufort.jpg/1280px-GrizzlyBearJeanBeaufort.jpg");
@@ -26,5 +26,11 @@ INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Rhinoceros", 1500,
 INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Orca", 1500, "https://upload.wikimedia.org/wikipedia/commons/3/37/Killerwhales_jumping.jpg");
 INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Crocodile", 1500, "https://c02.purpledshub.com/uploads/sites/62/2014/11/GettyImages-123529247-2a29d6c.jpg");
 INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Human", 1500, "https://m.media-amazon.com/images/M/MV5BNTczMzk1MjU1MV5BMl5BanBnXkFtZTcwNDk2MzAyMg@@._V1_FMjpg_UX1000_.jpg");
+INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Anaconda", 1500, "https://upload.wikimedia.org/wikipedia/commons/b/b4/Sucuri_verde.jpg");
+INSERT INTO entries (group_id, name, rating, img) VALUES (4, "German Shepherd", 1500, "https://upload.wikimedia.org/wikipedia/commons/8/83/German_Shepherds_in_ravine.jpg");
+INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Goat", 1500, "https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Nubian_Ibex_in_Negev.JPG/1280px-Nubian_Ibex_in_Negev.JPG");
+INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Komodo Dragon", 1500, "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Komodo_dragon_%28Varanus_komodoensis%29.jpg/1280px-Komodo_dragon_%28Varanus_komodoensis%29.jpg");
+INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Cobra", 1500, "https://www.naturesafariindia.com/wp-content/uploads/2023/10/King-cobra-in-Kaziranga-national-park-india.jpg");
+INSERT INTO entries (group_id, name, rating, img) VALUES (4, "Cat", 1500, "https://www.vettimes.co.uk/app/uploads/2019/04/mieze-2314082-ftr.jpg");
 __END__
 
