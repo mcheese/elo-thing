@@ -39,7 +39,7 @@
       .then((j) => {
         return j.map((v, i) => ({ ...v, rank: i + 1 }));
       });
-      sortItems.set(s);
+    sortItems.set(s);
   }
 
   const sortKey = writable('rank'); // default sort key
