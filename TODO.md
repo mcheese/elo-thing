@@ -18,7 +18,7 @@
 ### Security
   - [ ] CORS
   - [ ] Captchas
-  - [ ] HTTPS
+  - [x] HTTPS
   - [ ] Ask for external images
   - [ ] Throttle per IP
 
