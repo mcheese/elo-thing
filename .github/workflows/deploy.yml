@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: ['master']
-    paths: ['frontend/**']
+    paths: ['frontend/**', '.github/workflows/**']
 
 defaults:
   run:
