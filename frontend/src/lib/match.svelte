@@ -7,6 +7,7 @@
   } from 'flowbite-svelte-icons';
   import { writable } from 'svelte/store';
   import { onMount, createEventDispatcher } from 'svelte';
+  import { base } from '$app/paths';
   import { PUBLIC_ENDPOINT_URL } from '$env/static/public';
 
   export let id: string;
@@ -95,7 +96,7 @@
       <Card
         on:click={() => vote('l')}
         href="#"
-        img={$match_data.l.img || '/placeholder.png'}
+        img={$match_data.l.img || base + '/placeholder.png'}
         imgClass="h-52 object-cover bg-gray-200 dark:bg-gray-600"
         class="size-full h-96 w-96"
       >

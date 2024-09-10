@@ -7,7 +7,7 @@
 <Navbar let:NavContainer class="start-0 top-0 z-20 w-full shadow-md">
   <NavContainer class="max-w-screen-xl">
     <NavBrand href="{base}/">
-      <img src="/cheese.png" class="me-3 h-10 rounded-full" alt="..." />
+      <img src="{base}/cheese.png" class="me-3 h-10 rounded-full" alt="..." />
       <span class="self-center whitespace-nowrap text-xl font-semibold dark:text-white">
         Elo thing.
       </span>
