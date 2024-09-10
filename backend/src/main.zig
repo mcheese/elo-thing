@@ -6,9 +6,22 @@ const Elo = @import("elo.zig");
 
 const is_debug = builtin.mode == .Debug;
 
-pub const std_options = .{
-    // otherwise there are no info logs in release mode
-    .log_level = if (builtin.mode == .Debug) .debug else .info,
+// otherwise there are no info logs in release mode
+pub const std_options = .{ .log_level = if (is_debug) .debug else .info };
+
+// TODO: config file or cmd args
+// hardcode everything for now
+const cfg = .{
+    .port = 21337,
+    .interface = if (is_debug) "127.0.0.1" else "0.0.0.0",
+    .threads = if (is_debug) 4 else 8,
+    .workers = 1,
+    .db_file = std.mem.span(std.os.argv[1]),
+    .log_connections = is_debug,
+    .ssl = !is_debug,
+    .ssl_cert = "cert.pem",
+    .ssl_cert_key = "key.pem",
+    .ssl_servername = "elo-thing.duckdns.org:21337",
 };
 
 pub fn main() !void {
@@ -23,38 +36,27 @@ pub fn main() !void {
     defer std.debug.assert(!gpa.detectLeaks());
     const alloc = gpa.allocator();
 
-    const cfg = .{
-        .port = 21337,
-        .interface = if (is_debug) "127.0.0.1" else "0.0.0.0",
-        .threads = if (is_debug) 4 else 8,
-        .workers = 1,
-        .db_file = std.mem.span(std.os.argv[1]),
-        .log_connections = is_debug,
-    };
-
     var elo = try Elo.init(alloc, cfg.db_file, 1 + cfg.threads * cfg.workers);
     defer elo.deinit();
 
-    {
-        const c = try elo.deleteGroup("DEADBEEF");
-        std.debug.print("Removed group DEADBEEF with {} entries.\n", .{c});
-        try elo.addGroup("DEADBEEF",
-            \\[{"name": "first", "rating": 1335 },
-            \\ {"name": "second", "rating": 1290 },
-            \\ {"name": "third", "rating": 1189 },
-            \\ {"name": "fourth", "rating": 999 },
-            \\ {"name": "fifth", "rating": 2000 }
-            \\]
-        );
-    }
-
     const endpoints = Endpoints.init(&elo);
+
+    const tls = if (cfg.ssl)
+        try zap.Tls.init(.{
+            .server_name = cfg.ssl_servername,
+            .public_certificate_file = cfg.ssl_cert,
+            .private_key_file = cfg.ssl_cert_key,
+        })
+    else
+        null;
+
     var listener = zap.HttpListener.init(
         .{
             .port = cfg.port,
             .on_request = endpoints.handler,
             .log = cfg.log_connections,
             .interface = cfg.interface,
+            .tls = tls,
         },
     );
 
