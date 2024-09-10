@@ -9,26 +9,26 @@ const is_debug = builtin.mode == .Debug;
 // otherwise there are no info logs in release mode
 pub const std_options = .{ .log_level = if (is_debug) .debug else .info };
 
-// TODO: config file or cmd args
-// hardcode everything for now
-const cfg = .{
-    .port = 21337,
-    .interface = if (is_debug) "127.0.0.1" else "0.0.0.0",
-    .threads = if (is_debug) 4 else 8,
-    .workers = 1,
-    .db_file = std.mem.span(std.os.argv[1]),
-    .log_connections = is_debug,
-    .ssl = !is_debug,
-    .ssl_cert = "cert.pem",
-    .ssl_cert_key = "key.pem",
-    .ssl_servername = "elo-thing.duckdns.org:21337",
-};
-
 pub fn main() !void {
     if (std.os.argv.len < 2) {
         std.debug.print("Requires path to db file as first argument.\n", .{});
         return;
     }
+
+    // TODO: config file or cmd args
+    // hardcode everything for now
+    const cfg = .{
+        .port = 21337,
+        .interface = if (is_debug) "127.0.0.1" else "0.0.0.0",
+        .threads = if (is_debug) 4 else 8,
+        .workers = 1,
+        .db_file = std.mem.span(std.os.argv[1]),
+        .log_connections = is_debug,
+        .ssl = !is_debug,
+        .ssl_cert = "cert.pem",
+        .ssl_cert_key = "key.pem",
+        .ssl_servername = "elo-thing.duckdns.org:21337",
+    };
 
     var gpa = std.heap.GeneralPurposeAllocator(.{
         .thread_safe = true,
