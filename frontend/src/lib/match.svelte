@@ -12,44 +12,50 @@
   export let id: string;
 
   const dispatch = createEventDispatcher();
-
-  function matchCompleted() {
+  function notifyComplete() {
     dispatch('matchCompleted', null);
   }
 
   const match_data = writable({});
 
   let promise = new Promise(() => {});
-  function fetchMatch(sleep: number) {
+
+
+  onMount(() => {
+    promise = fetchMatch();
+  });
+
+  const last_winner = writable('d');
+  const rating_change = writable({});
+
+  async function fetchMatch() {
+    const res = await fetch(PUBLIC_ENDPOINT_URL + '/match/' + id);
+    if (!res.ok) {
+      throw Error(res.status + ' - ' + res.statusText);
+    }
+    const s = await res.json();
+    match_data.set(s);
+  }
+
+  function vote(winner: string) {
     promise = (async () => {
-      const wait = new Promise((r) => setTimeout(r, sleep));
-      const res = await fetch(PUBLIC_ENDPOINT_URL + '/match/' + id);
+      const wait = new Promise((r) => setTimeout(r, 1000)); // min time the match result shows
+      last_winner.set(winner);
+      rating_change.set({});
+      const res = await fetch(
+        PUBLIC_ENDPOINT_URL +
+          '/result?' +
+          new URLSearchParams({ match_id: $match_data.match_id, result: winner })
+      );
       if (!res.ok) {
         throw Error(res.status + ' - ' + res.statusText);
       }
       const s = await res.json();
-      match_data.set(s);
+      rating_change.set(s);
+      notifyComplete();
+      fetchMatch();
       await wait;
     })();
-  }
-  onMount(() => fetchMatch(0));
-
-  const last_winner = writable('d');
-  const rating_change = writable({});
-  async function vote(winner: string) {
-    const match_id = $match_data.match_id;
-    last_winner.set(winner);
-    rating_change.set({});
-    const res = await fetch(
-      PUBLIC_ENDPOINT_URL + '/result?' + new URLSearchParams({ match_id: match_id, result: winner })
-    );
-    if (!res.ok) {
-      throw Error(res.status + ' - ' + res.statusText);
-    }
-    fetchMatch(1000);
-    const s = await res.json();
-    rating_change.set(s);
-    matchCompleted();
   }
 
   function numColor(num: number) {
@@ -58,7 +64,6 @@
   function numText(num: number) {
     return num == undefined ? '' : num > 0 ? '+' + num : num;
   }
-
 </script>
 
 <div class="flex w-fit max-w-full flex-col">
@@ -91,7 +96,7 @@
       <Card
         on:click={() => vote('l')}
         href="#"
-        img="{$match_data.l.img || '/placeholder.png'}"
+        img={$match_data.l.img || '/placeholder.png'}
         imgClass="h-52 object-cover bg-gray-200 dark:bg-gray-600"
         class="size-full h-96 w-96"
       >
@@ -104,7 +109,7 @@
       <Card
         on:click={() => vote('r')}
         href="#"
-        img="{$match_data.r.img || '/placeholder.png'}"
+        img={$match_data.r.img || '/placeholder.png'}
         imgClass="h-52 object-cover bg-gray-200 dark:bg-gray-600"
         class="size-full h-96 w-96 text-left"
       >

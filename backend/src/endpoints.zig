@@ -31,7 +31,7 @@ const Route = struct {
 fn status(err: anyerror) zap.StatusCode {
     const c = zap.StatusCode;
     return switch (err) {
-        error.BadId => c.bad_request,
+        error.BadId, error.BadJson => c.bad_request,
         error.NotFound => c.not_found,
         else => c.internal_server_error,
     };
