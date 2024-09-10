@@ -1,11 +1,12 @@
 <script>
   import { Navbar, NavBrand, NavLi, NavUl, DarkMode, Tooltip } from 'flowbite-svelte';
   import { GithubSolid } from 'flowbite-svelte-icons';
+  import { base } from '$app/paths':
 </script>
 
 <Navbar let:NavContainer class="start-0 top-0 z-20 w-full shadow-md">
   <NavContainer class="max-w-screen-xl">
-    <NavBrand href="/">
+    <NavBrand href="{base}/">
       <img src="/cheese.png" class="me-3 h-10 rounded-full" alt="..." />
       <span class="self-center whitespace-nowrap text-xl font-semibold dark:text-white">
         Elo thing.
@@ -13,9 +14,9 @@
     </NavBrand>
 
     <NavUl>
-      <NavLi href="/">Home</NavLi>
-      <NavLi href="/xdd">Create</NavLi>
-      <NavLi href="/xdd">About</NavLi>
+      <NavLi href="{base}/">Home</NavLi>
+      <NavLi href="{base}/xdd">Create</NavLi>
+      <NavLi href="{base}/xdd">About</NavLi>
     </NavUl>
 
     <div class="flex">
