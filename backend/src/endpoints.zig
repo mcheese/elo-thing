@@ -39,7 +39,7 @@ fn status(err: anyerror) zap.StatusCode {
 
 /// root request handler, doing the routing
 fn on_request(req: zap.Request) void {
-    req.setHeader("Access-Control-Allow-Origin", "*") catch {};
+    req.setHeader("Access-Control-Allow-Origin", "https://elothing.top") catch {};
 
     if (req.path) |p| {
         for (routes) |route| {
