@@ -9,20 +9,28 @@
     - [ ] Adjusted algos (FIDE, USCF)
     - [ ] K value by amount of games
   - [x] Images
-  - [ ] Janitor abandoned matches
-  - [x] Matchmaking
   - [ ] Limit votes
     - [ ] Identify session
+  - [ ] Janitor abandoned matches
+  - [x] Matchmaking
   - [ ] Create lists
+    - [ ] Creation
+    - [ ] Share lists
+    - [ ] Prewview images
+      - [ ] Position adjust
+  - [ ] Settings (per list)
+    - [ ] Voting limit
+    - [ ] Hide ratings
+    - [ ] Overall time limit
 
 ### Security
-  - [ ] CORS
+  - [x] CORS
   - [ ] Captchas
   - [x] HTTPS
   - [ ] Ask for external images
   - [ ] Throttle per IP
 
 ### Optimization
-  - [ ] Cache backend
   - [ ] Rethink DB - Postgres?
+  - [ ] Cache backend
 
