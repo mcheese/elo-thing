@@ -51,4 +51,16 @@ jobs:
           key: ${{ secrets.KEY }}
           source: "bin/*"
           target: deploy
+          strip_components: 1
+
+      - name: Run
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          script: |
+            killall elothing-api
+            cp ./deploy/elothing-api ./elothing-api
+            nohup ./elothing-api test.db &
 
