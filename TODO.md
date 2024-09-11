@@ -4,7 +4,7 @@
 > Keeping track for myself.
 
 ### Functionality
-  - [ ] Rating calc
+  - [x] Rating calc
     - [x] Elo
     - [x] ~K value by amount of games~
   - [x] Images
@@ -19,6 +19,8 @@
       - [ ] Position adjust
   - [ ] Settings (per list)
     - [ ] Voting limit
+      - [ ] Total votes per person
+      - [ ] Votes per time
     - [ ] Hide ratings
     - [ ] Overall time limit
 
