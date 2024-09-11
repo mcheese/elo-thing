@@ -31,7 +31,7 @@ pub fn main() !void {
     };
 
     // in debug use GPA and check leaks, in release use malloc
-    var gpa: if (dbg) std.heap.GeneralPurposeAllocator(.{ .thread_safe = true }) else void = {};
+    var gpa: if (dbg) std.heap.GeneralPurposeAllocator(.{ .thread_safe = true }) else void = if (dbg) .{};
     defer if (dbg) std.debug.assert(!gpa.detectLeaks());
     const alloc = if (dbg) gpa.allocator() else std.heap.c_allocator;
 

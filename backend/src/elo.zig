@@ -394,7 +394,7 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
         defer stmt_get.deinit();
 
         var iter = try stmt_get.iterator(
-            struct { rowid: i64, rating: i64, matches: i64 },
+            struct { rowid: i64, rating: i64 },
             .{ match.l_rowid, match.r_rowid },
         );
 
