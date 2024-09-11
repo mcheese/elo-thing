@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { Alert, Card, Button, Progressbar, Spinner } from 'flowbite-svelte';
+  import { Alert, Card, Button, Progressbar, Tooltip } from 'flowbite-svelte';
   import {
     ChevronDoubleLeftOutline,
     ChevronDoubleRightOutline,
-    ChevronSortOutline
+    ChevronSortOutline,
+    CloseOutline,
   } from 'flowbite-svelte-icons';
   import { writable } from 'svelte/store';
   import { onMount, createEventDispatcher } from 'svelte';
@@ -17,7 +18,12 @@
     dispatch('matchCompleted', null);
   }
 
-  const match_data = writable({});
+  interface Thing {
+    rating: number;
+    name: string;
+    img: string;
+  }
+  const match_data = writable<{ match_id: string; l: Thing; r: Thing }>();
 
   let promise = new Promise(() => {});
 
@@ -26,7 +32,7 @@
   });
 
   const last_winner = writable('d');
-  const rating = writable({});
+  const rating = writable<{ l: number | null; r: number | null }>({l:null, r:null});
 
   async function fetchMatch() {
     const res = await fetch(PUBLIC_ENDPOINT_URL + '/match/' + id);
@@ -41,7 +47,7 @@
     promise = (async () => {
       const wait = new Promise((r) => setTimeout(r, 1000)); // min time the match result shows
       last_winner.set(winner);
-      rating.set({});
+      rating.set({ l: null, r: null });
       const res = await fetch(
         PUBLIC_ENDPOINT_URL +
           '/result?' +
@@ -58,11 +64,11 @@
     })();
   }
 
-  function numColor(num: number) {
+  function numColor(num: number | null) {
     return num ? (num < 0 ? 'text-red-700' : 'text-lime-600') : 'text-gray-500';
   }
-  function numText(num: number) {
-    return num == undefined ? '' : num > 0 ? '+' + num : num;
+  function numText(num: number | null) {
+    return num == null ? '' : num > 0 ? '+' + num : num;
   }
 </script>
 
@@ -105,7 +111,11 @@
           <p class="text-2xl font-bold">{$match_data.l.name}</p>
         </div>
       </Card>
-      <Button on:click={() => vote('d')} color="green" class="mx-2 w-10">Draw</Button>
+      <div class="mx-2 flex w-10 flex-col">
+        <Button on:click={() => vote('x')} color="dark" class="w-full h-10"><CloseOutline class="size-8" /></Button>
+        <Tooltip>Skip</Tooltip>
+        <Button on:click={() => vote('d')} color="green" class="mt-2 w-full flex-grow">Draw</Button>
+      </div>
       <Card
         on:click={() => vote('r')}
         href="#"
