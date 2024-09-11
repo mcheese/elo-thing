@@ -6,8 +6,7 @@
 ### Functionality
   - [ ] Rating calc
     - [x] Elo
-    - [ ] Adjusted algos (FIDE, USCF)
-    - [ ] K value by amount of games
+    - [x] ~K value by amount of games~
   - [x] Images
   - [ ] Limit votes
     - [ ] Identify session
@@ -32,5 +31,6 @@
 
 ### Optimization
   - [ ] Rethink DB - Postgres?
+  - [ ] Defer UPDATE query in match
   - [ ] Cache backend
 

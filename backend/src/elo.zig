@@ -387,10 +387,9 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
     // there could be a rating change after this lookup, which makes the elo calc slightly off
     // but that's super minor (and rare), don't want to lock for it
     var ratings: LRPair = .{ .l = 0, .r = 0 };
-    var matches: LRPair = .{ .l = 0, .r = 0 };
     {
         var stmt_get = try self.db().prepare(
-            \\SELECT rowid,rating,matches FROM entries WHERE rowid IN (?, ?)
+            \\SELECT rowid,rating FROM entries WHERE rowid IN (?, ?)
         );
         defer stmt_get.deinit();
 
@@ -403,15 +402,13 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
             const row = (try iter.next(.{})) orelse return error.NotFound;
             if (row.rowid == match.l_rowid) {
                 ratings.l = row.rating;
-                matches.l = row.matches;
             } else {
                 ratings.r = row.rating;
-                matches.r = row.matches;
             }
         }
     }
 
-    const change = ratingChanges(ratings, winner, matches);
+    const change = ratingChanges(ratings, winner);
 
     try self.db().exec(
         \\UPDATE entries
@@ -433,7 +430,8 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
     return std.json.stringifyAlloc(self.alloc, change, .{});
 }
 
-// dynamic K factor, FIDE rules
+/// dynamic K factor, FIDE rules
+/// not used right now
 fn getKFactor(rating: i64, matches: i64) f64 {
     if (matches < 30) return 40;
     if (rating < 2400) return 20;
@@ -457,10 +455,8 @@ fn getKFactor(rating: i64, matches: i64) f64 {
 ///     K = max adjustment
 ///     S = score (0: lose, 0.5: draw, 1: win)
 ///
-fn ratingChanges(rating: LRPair, winner: Winner, matches: LRPair) LRPair {
-    // was default 32 before
-    const k_l = getKFactor(rating.l, matches.l);
-    const k_r = getKFactor(rating.r, matches.r);
+fn ratingChanges(rating: LRPair, winner: Winner) LRPair {
+    const k = 20; // FIDE over 30 games or blitz
 
     const exp_l: f64 = @as(f64, @floatFromInt(rating.r - rating.l)) / 400;
     const e_l: f64 = 1 / (1 + std.math.pow(f64, 10, exp_l)); // expected score left
@@ -475,8 +471,8 @@ fn ratingChanges(rating: LRPair, winner: Winner, matches: LRPair) LRPair {
     const s_r = 1 - s_l; // score right
 
     return .{
-        .l = @intFromFloat(@round(k_l * (s_l - e_l))),
-        .r = @intFromFloat(@round(k_r * (s_r - e_r))),
+        .l = @intFromFloat(@round(k * (s_l - e_l))),
+        .r = @intFromFloat(@round(k * (s_r - e_r))),
     };
 }
 
