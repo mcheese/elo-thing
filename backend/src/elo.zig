@@ -456,7 +456,12 @@ fn getKFactor(rating: i64, matches: i64) f64 {
 ///     S = score (0: lose, 0.5: draw, 1: win)
 ///
 fn ratingChanges(rating: LRPair, winner: Winner) LRPair {
-    const k = 20; // FIDE over 30 games or blitz
+    // K value is subject to change
+    // FIDE would be 40 for the first 30 games, then 20. Or always 20 for blitz
+    // more value early feels weird as it rewards ealry voters even more
+    // 32 feels better than 20, and is in the original Elo formula
+    // ultimately should be configurable based on the list
+    const k = 32;
 
     const exp_l: f64 = @as(f64, @floatFromInt(rating.r - rating.l)) / 400;
     const e_l: f64 = 1 / (1 + std.math.pow(f64, 10, exp_l)); // expected score left
