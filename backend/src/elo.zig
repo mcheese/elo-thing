@@ -293,10 +293,10 @@ fn matchmake(list: []const MatchmakingRow) ![2]*const MatchmakingRow {
     // score is normalized 0 to 100
     // scores multiplied with weight and summed for final score
     const skill_weight = 8;
-    const matches_weight = 12;
+    const matches_weight = 10;
     const random_weight = 10;
 
-    const skill_K = 400; // rating diff where score becomes 0 (linear with floor)
+    const skill_K = 400; // rating diff where score becomes 0 (linear, goes below)
     const matches_K = 20; // extra matches where score becomes 0 (linear with floor)
 
     // find least amount of matches an entry has
@@ -318,7 +318,7 @@ fn matchmake(list: []const MatchmakingRow) ![2]*const MatchmakingRow {
             const skill_diff: i64 = @intCast(@abs(list[i].rating - list[j].rating));
             const extra_matches = (list[i].matches - min_matches) + (list[j].matches - min_matches);
 
-            const skill_score = if (skill_diff < skill_K) (100 - @divTrunc(skill_diff * 100, skill_K)) else 0;
+            const skill_score = (100 - @divTrunc(skill_diff * 100, skill_K));
             const matches_score = if (extra_matches < matches_K) (100 - @divTrunc(extra_matches * 100, matches_K)) else 0;
             const random_score = rng.intRangeAtMostBiased(i64, 0, 100);
 
