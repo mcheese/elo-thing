@@ -18,16 +18,16 @@ pub fn main() !void {
     // TODO: config file or cmd args
     // hardcode everything for now
     const cfg = .{
-        .port = 21337,
+        .port = 1337,
         .interface = if (is_debug) "127.0.0.1" else "0.0.0.0",
         .threads = if (is_debug) 4 else 8,
         .workers = 1,
         .db_file = std.mem.span(std.os.argv[1]),
-        .log_connections = is_debug,
+        .log_connections = true,
         .ssl = !is_debug,
         .ssl_cert = "cert.pem",
         .ssl_cert_key = "key.pem",
-        .ssl_servername = "elo-thing.duckdns.org:21337",
+        .ssl_servername = "api.elothing.top:1337",
     };
 
     var gpa = std.heap.GeneralPurposeAllocator(.{

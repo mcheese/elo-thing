@@ -312,7 +312,7 @@ fn matchmake(list: []const MatchmakingRow) ![2]*const MatchmakingRow {
     var canidates: [2]*const MatchmakingRow = undefined;
     var max_score: i64 = std.math.minInt(i64);
 
-    std.log.debug("i j    Sdif Mdif      S       M       R            S       M       R    SCORE", .{});
+    //std.log.debug("i j    Sdif Mdif      S       M       R            S       M       R    SCORE", .{});
 
     for (0..list.len) |i| {
         for (i + 1..list.len) |j| {
@@ -329,23 +329,23 @@ fn matchmake(list: []const MatchmakingRow) ![2]*const MatchmakingRow {
                 canidates = .{ &list[i], &list[j] };
             }
 
-            std.log.debug("{}-{} | {:4}S {:3}M | {:4}*{:2} {:4}*{:2} {:4}*{:2}  =  {:5} + {:5} + {:5}  = {:5}   {s}", .{
-                i,
-                j,
-                skill_diff,
-                extra_matches,
-                skill_score,
-                skill_weight,
-                matches_score,
-                matches_weight,
-                random_score,
-                random_weight,
-                skill_score * skill_weight,
-                matches_score * matches_weight,
-                random_score * random_weight,
-                score,
-                if (canidates[0] == &list[i] and canidates[1] == &list[j]) "<--" else "",
-            });
+            //std.log.debug("{}-{} | {:4}S {:3}M | {:4}*{:2} {:4}*{:2} {:4}*{:2}  =  {:5} + {:5} + {:5}  = {:5}   {s}", .{
+            //    i,
+            //    j,
+            //    skill_diff,
+            //    extra_matches,
+            //    skill_score,
+            //    skill_weight,
+            //    matches_score,
+            //    matches_weight,
+            //    random_score,
+            //    random_weight,
+            //    skill_score * skill_weight,
+            //    matches_score * matches_weight,
+            //    random_score * random_weight,
+            //    score,
+            //    if (canidates[0] == &list[i] and canidates[1] == &list[j]) "<--" else "",
+            //});
         }
     }
 

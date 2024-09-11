@@ -45,6 +45,7 @@ fn on_request(req: zap.Request) void {
         for (routes) |route| {
             if (std.mem.startsWith(u8, p, route.path)) {
                 return route.handler(&req, p[route.path.len..]) catch |e| {
+                    std.log.err("{s} | {s}", .{@errorName(e), route.path});
                     return req.setStatus(status(e));
                 };
             }
