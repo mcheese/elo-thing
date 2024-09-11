@@ -307,7 +307,6 @@ fn matchmake(list: []const MatchmakingRow) ![2]*const MatchmakingRow {
             min_matches = e.matches;
     }
 
-
     // for every combo calc a score and keep the 2 highest
     var canidates: [2]*const MatchmakingRow = undefined;
     var max_score: i64 = std.math.minInt(i64);
@@ -319,8 +318,8 @@ fn matchmake(list: []const MatchmakingRow) ![2]*const MatchmakingRow {
             const skill_diff: i64 = @intCast(@abs(list[i].rating - list[j].rating));
             const extra_matches = (list[i].matches - min_matches) + (list[j].matches - min_matches);
 
-            const skill_score = if (skill_diff < skill_K) (100 - @divTrunc(skill_diff*100, skill_K)) else 0;
-            const matches_score = if (extra_matches < matches_K) (100 - @divTrunc(extra_matches*100, matches_K)) else 0;
+            const skill_score = if (skill_diff < skill_K) (100 - @divTrunc(skill_diff * 100, skill_K)) else 0;
+            const matches_score = if (extra_matches < matches_K) (100 - @divTrunc(extra_matches * 100, matches_K)) else 0;
             const random_score = rng.intRangeAtMostBiased(i64, 0, 100);
 
             const score = skill_score * skill_weight + matches_score * matches_weight + random_score * random_weight;
@@ -353,7 +352,7 @@ fn matchmake(list: []const MatchmakingRow) ![2]*const MatchmakingRow {
 }
 
 const Winner = enum { left, right, draw };
-const RatingPair = struct { l: i64, r: i64 };
+const LRPair = struct { l: i64, r: i64 };
 
 /// finish match
 /// adjusts elo based on result
@@ -380,53 +379,69 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
         'd' => .draw,
         else => {
             return try self.alloc.dupe(u8,
-                \\{"l_change":0,"r_change":0}
+                \\{"l":0,"r":0}
             );
         },
     };
 
-    var stmt_get = try self.db().prepare(
-        \\SELECT 
-        \\  MAX(CASE WHEN rowid = ? THEN rating END) AS l,
-        \\  MAX(CASE WHEN rowid = ? THEN rating END) AS r
-        \\FROM entries
-        \\WHERE rowid IN (?, ?)
-    );
-    defer stmt_get.deinit();
-    var stmt_set = try self.db().prepare(
+    // there could be a rating change after this lookup, which makes the elo calc slightly off
+    // but that's super minor (and rare), don't want to lock for it
+    var ratings: LRPair = .{ .l = 0, .r = 0 };
+    var matches: LRPair = .{ .l = 0, .r = 0 };
+    {
+        var stmt_get = try self.db().prepare(
+            \\SELECT rowid,rating,matches FROM entries WHERE rowid IN (?, ?)
+        );
+        defer stmt_get.deinit();
+
+        var iter = try stmt_get.iterator(
+            struct { rowid: i64, rating: i64, matches: i64 },
+            .{ match.l_rowid, match.r_rowid },
+        );
+
+        for (0..2) |_| {
+            const row = (try iter.next(.{})) orelse return error.NotFound;
+            if (row.rowid == match.l_rowid) {
+                ratings.l = row.rating;
+                matches.l = row.matches;
+            } else {
+                ratings.r = row.rating;
+                matches.r = row.matches;
+            }
+        }
+    }
+
+    const change = ratingChanges(ratings, winner, matches);
+
+    try self.db().exec(
         \\UPDATE entries
-        \\SET rating = @rating, matches = matches + 1
-        \\WHERE rowid == @rowid
-    );
-    defer stmt_set.deinit();
-
-    // transaction start
-    var savepoint = try self.db().savepoint("finMatch");
-    defer savepoint.rollback();
-
-    const rating = try stmt_get.one(RatingPair, .{}, .{
+        \\SET rating = CASE
+        \\               WHEN rowid == ? THEN rating + ?
+        \\               WHEN rowid == ? THEN rating + ?
+        \\             END,
+        \\    matches = matches + 1
+        \\WHERE rowid IN (?, ?)
+    , .{}, .{
+        match.l_rowid,
+        change.l,
+        match.r_rowid,
+        change.r,
         match.l_rowid,
         match.r_rowid,
-        match.l_rowid,
-        match.r_rowid,
-    }) orelse {
-        return error.NotFound;
-    };
-    const new_rating = adjustRatings(rating, winner);
-    try stmt_set.exec(.{}, .{ .rating = new_rating.l, .rowid = match.l_rowid });
-    stmt_set.reset();
-    try stmt_set.exec(.{}, .{ .rating = new_rating.r, .rowid = match.r_rowid });
+    });
 
-    // end transaction
-    savepoint.commit();
+    return std.json.stringifyAlloc(self.alloc, change, .{});
+}
 
-    return std.json.stringifyAlloc(self.alloc, .{
-        .l_change = new_rating.l - rating.l,
-        .r_change = new_rating.r - rating.r,
-    }, .{});
+// dynamic K factor, FIDE rules
+fn getKFactor(rating: i64, matches: i64) f64 {
+    if (matches < 30) return 40;
+    if (rating < 2400) return 20;
+    return 10;
 }
 
 /// actual elo calc
+/// returns rating change differences
 ///
 /// ref: https://en.wikipedia.org/wiki/Elo_rating_system#Mathematical_details
 ///
@@ -438,27 +453,30 @@ pub fn finMatch(self: *Self, match_sid: []const u8, result: u8) ![]u8 {
 ///     E_a: expected chance for a to win
 ///     E_b = 1 - E_a
 ///
-///     new rating: R' = R' + K(S - E)
+///     rating adjustment: K(S - E)
 ///     K = max adjustment
 ///     S = score (0: lose, 0.5: draw, 1: win)
 ///
-fn adjustRatings(rating: RatingPair, winner: Winner) RatingPair {
-    const k = 32; // could lower this towards 16 with amount of matches
+fn ratingChanges(rating: LRPair, winner: Winner, matches: LRPair) LRPair {
+    // was default 32 before
+    const k_l = getKFactor(rating.l, matches.l);
+    const k_r = getKFactor(rating.r, matches.r);
 
-    const exp = @as(f64, @floatFromInt(rating.r - rating.l)) / 400;
-    const e_l = 1 / (1 + std.math.pow(f64, 10, exp));
-    const e_r = 1 - e_l;
+    const exp_l: f64 = @as(f64, @floatFromInt(rating.r - rating.l)) / 400;
+    const e_l: f64 = 1 / (1 + std.math.pow(f64, 10, exp_l)); // expected score left
+    const e_r: f64 = 1 - e_l; // expected score right
 
+    // actual score left
     const s_l: f64 = switch (winner) {
         .left => 1,
         .right => 0,
         .draw => 0.5,
     };
-    const s_r = 1 - s_l;
+    const s_r = 1 - s_l; // score right
 
     return .{
-        .l = rating.l + @as(i64, @intFromFloat(k * (s_l - e_l))),
-        .r = rating.r + @as(i64, @intFromFloat(k * (s_r - e_r))),
+        .l = @intFromFloat(@round(k_l * (s_l - e_l))),
+        .r = @intFromFloat(@round(k_r * (s_r - e_r))),
     };
 }
 

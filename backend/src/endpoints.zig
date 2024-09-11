@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const zap = @import("zap");
 const Elo = @import("elo.zig");
 
@@ -39,13 +40,16 @@ fn status(err: anyerror) zap.StatusCode {
 
 /// root request handler, doing the routing
 fn on_request(req: zap.Request) void {
-    req.setHeader("Access-Control-Allow-Origin", "https://elothing.top") catch {};
+    req.setHeader(
+        "Access-Control-Allow-Origin",
+        if (builtin.mode == .Debug) "*" else "https://elothing.top",
+    ) catch {};
 
     if (req.path) |p| {
         for (routes) |route| {
             if (std.mem.startsWith(u8, p, route.path)) {
                 return route.handler(&req, p[route.path.len..]) catch |e| {
-                    std.log.err("{s} | {s}", .{@errorName(e), route.path});
+                    std.log.err("{s} | {s}", .{ @errorName(e), route.path });
                     return req.setStatus(status(e));
                 };
             }

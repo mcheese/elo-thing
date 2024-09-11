@@ -26,7 +26,7 @@
   });
 
   const last_winner = writable('d');
-  const rating_change = writable({});
+  const rating = writable({});
 
   async function fetchMatch() {
     const res = await fetch(PUBLIC_ENDPOINT_URL + '/match/' + id);
@@ -41,7 +41,7 @@
     promise = (async () => {
       const wait = new Promise((r) => setTimeout(r, 1000)); // min time the match result shows
       last_winner.set(winner);
-      rating_change.set({});
+      rating.set({});
       const res = await fetch(
         PUBLIC_ENDPOINT_URL +
           '/result?' +
@@ -51,7 +51,7 @@
         throw Error(res.status + ' - ' + res.statusText);
       }
       const s = await res.json();
-      rating_change.set(s);
+      rating.set(s);
       notifyComplete();
       fetchMatch();
       await wait;
@@ -77,8 +77,8 @@
       >
         <!--<Spinner color="green" class="mb-12 size-14" /> -->
         <div class="flex flex-row justify-evenly">
-          <p class="mt-6 w-12 text-5xl font-bold {numColor($rating_change.l_change)}">
-            {numText($rating_change.l_change)}
+          <p class="mt-6 w-12 text-5xl font-bold {numColor($rating.l)}">
+            {numText($rating.l)}
           </p>
           {#if $last_winner === 'l'}
             <ChevronDoubleLeftOutline class="size-24" />
@@ -87,8 +87,8 @@
           {:else}
             <ChevronSortOutline class="size-24" />
           {/if}
-          <p class="mt-6 w-12 text-5xl font-bold {numColor($rating_change.r_change)}">
-            {numText($rating_change.r_change)}
+          <p class="mt-6 w-12 text-5xl font-bold {numColor($rating.r)}">
+            {numText($rating.r)}
           </p>
         </div>
       </Alert>
