@@ -13,19 +13,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build
-        uses: goto-bus-stop/setup-zig@v2
+      - uses: actions/checkout@v4
+      - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.13.0
-      - run: |
+      - name: Test
+        run: |
           zig build test
+      - name: Build
+        run: |
           zig build --release=fast
 
-      - name: Upload Artifacts
-        uses: actions/upload-pages-artifact@v3
+      - name: Artifacts
+        uses: actions/upload-artifact@v3
         with:
-          path: 'frontend/build/'
+          name: bin
+          path: 'backend/zig-out/bin'
 
