@@ -24,7 +24,7 @@ jobs:
 
       - name: Build
         run: |
-          zig build --release=fast
+          zig build --release=safe
 
       - name: Artifacts
         uses: actions/upload-artifact@v4
