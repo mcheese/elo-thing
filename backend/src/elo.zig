@@ -210,7 +210,7 @@ pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
         // that's supposedly way more performant
         // https://stackoverflow.com/questions/4114940/select-random-rows-in-sqlite
         var stmt = try self.db().prepare(
-            \\SELECT rowid,matches,name,rating,img FROM entries WHERE rowid IN 
+            \\SELECT rowid,matches,name,rating,img FROM entries WHERE rowid IN
             \\    (SELECT rowid FROM entries WHERE group_id = ? ORDER BY RANDOM() LIMIT 8)
         );
         defer stmt.deinit();
