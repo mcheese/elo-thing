@@ -60,7 +60,9 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           script: |
-            killall elothing-api
+            sudo systemctl stop elothing-api.service
             cp ./deploy/elothing-api ./elothing-api
-            nohup ./elothing-api test.db &
+            sudo systemctl start elothing-api.service
+            sleep 3
+            systemctl status elothing-api.service
 
