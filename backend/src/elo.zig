@@ -506,7 +506,6 @@ test "sid id conversion" {
     for (0..40) |_| {
         const id = rand.int(u48);
         const sid = try sidFromId(id);
-        std.debug.print(" * {s} <-> 0x{x:0>12}\n", .{ &sid, id });
         const id2 = try idFromSid(&sid);
         for (sid) |c| {
             if (!std.ascii.isAlphanumeric(c) and c != '-' and c != '_') {
