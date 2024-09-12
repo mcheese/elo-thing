@@ -4,9 +4,10 @@
     ChevronDoubleLeftOutline,
     ChevronDoubleRightOutline,
     ChevronSortOutline,
-    CloseOutline,
+    CloseOutline
   } from 'flowbite-svelte-icons';
   import { writable } from 'svelte/store';
+  import MatchCard from '$lib/matchcard.svelte';
   import { onMount, createEventDispatcher } from 'svelte';
   import { base } from '$app/paths';
   import { PUBLIC_ENDPOINT_URL } from '$env/static/public';
@@ -32,7 +33,7 @@
   });
 
   const last_winner = writable('d');
-  const rating = writable<{ l: number | null; r: number | null }>({l:null, r:null});
+  const rating = writable<{ l: number | null; r: number | null }>({ l: null, r: null });
 
   async function fetchMatch() {
     const res = await fetch(PUBLIC_ENDPOINT_URL + '/match/' + id);
@@ -99,6 +100,17 @@
         </div>
       </Alert>
     {:then}
+      <MatchCard left={true} data={$match_data.l} {vote} />
+      <div class="mx-2 flex w-10 flex-col">
+        <Button on:click={() => vote('x')} color="dark" class="h-10 w-full">
+          <CloseOutline class="size-8" />
+        </Button>
+        <Tooltip>Skip</Tooltip>
+        <Button on:click={() => vote('d')} color="green" class="mt-2 w-full flex-grow">Draw</Button>
+      </div>
+      <MatchCard left={false} data={$match_data.r} {vote} />
+
+      <!--
       <Card
         on:click={() => vote('l')}
         href="#"
@@ -128,6 +140,7 @@
           <p class="text-2xl font-bold">{$match_data.r.name}</p>
         </div>
       </Card>
+      -->
     {:catch err}
       <Alert
         color="red"

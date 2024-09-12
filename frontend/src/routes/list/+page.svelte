@@ -3,26 +3,21 @@
   import Match from '$lib/match.svelte';
 
   import { page } from '$app/stores';
-  import { onMount } from 'svelte';
+  import { error } from '@sveltejs/kit';
 
   let refreshStandings: () => any;
   function onCompletedMatch() {
     refreshStandings();
   }
 
-  let matchid: string | null;
-  onMount(() => {
-    matchid = $page.url.searchParams.get('id');
-  });
+  const matchid = $page.url.searchParams.get('id') || error(400, 'no id');
 </script>
 
-{#if matchid}
-  <div class="flex flex-wrap justify-center">
-    <div class="max-w-fit" style="width:95vw">
-      <Match bind:id={matchid} on:matchCompleted={onCompletedMatch} />
-    </div>
-    <div class="m-3">
-      <Standings bind:id={matchid} bind:refresh={refreshStandings} />
-    </div>
+<div class="flex flex-wrap justify-center">
+  <div class="max-w-fit" style="width:95vw">
+    <Match id={matchid} on:matchCompleted={onCompletedMatch} />
   </div>
-{/if}
+  <div class="m-3">
+    <Standings id={matchid} bind:refresh={refreshStandings} />
+  </div>
+</div>
