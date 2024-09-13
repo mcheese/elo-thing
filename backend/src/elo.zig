@@ -10,10 +10,8 @@ pub const EloError = error{
     BadJson,
     AlreadyExists,
     NoResult,
+    TooMany,
 };
-
-const Entry = struct { name: []const u8, rating: i64, img: []const u8 = "" };
-const Group = []Entry;
 
 // in-mem saved per match
 const Match = struct {
@@ -95,39 +93,57 @@ pub fn deleteGroup(self: *Self, sid: []const u8) !usize {
     return self.db().rowsAffected();
 }
 
-/// insert group by json string
-pub fn addGroup(self: *Self, sid: []const u8, json: []const u8) !void {
-    const id = try idFromSid(sid);
-    const parsed = try std.json.parseFromSlice([]Entry, self.alloc, json, .{ .allocate = .alloc_if_needed });
-    defer parsed.deinit();
+const ImgPos = struct { x: i64, y: i64, width: i64, height: i64 };
+const EntryCreate = struct { name: []const u8, img: []const u8 = "", img_pos: ?ImgPos = null };
+
+/// create a group by json string, returns id
+pub fn createGroup(self: *Self, json: []const u8) ![8]u8 {
+    const id = Rand.get().int(u48);
+    const sid = try sidFromId(id);
+
+    var arena = std.heap.ArenaAllocator.init(self.alloc);
+    defer arena.deinit();
+
+    const parsed = try std.json.parseFromSliceLeaky(
+        []EntryCreate,
+        arena.allocator(),
+        json,
+        .{ .allocate = .alloc_if_needed },
+    );
+    if (parsed.len < 2) return error.BadJson;
+    if (parsed.len > 256) return error.TooMany;
 
     var savepoint = try self.db().savepoint("addGroup");
     defer savepoint.rollback();
 
+    // checking for existance seems pointless, it's a random 48 bit id
+    // should only be possible if the rng is broken
+    const count = try self.db().one(i64,
+        \\SELECT count(*) FROM entries WHERE group_id = ?
+    , .{}, .{ .group_id = id });
+    if (count != 0) return error.AlreadyExists;
+
     {
-        const query =
-            \\SELECT count(*) FROM entries WHERE group_id = ?
-        ;
-        const count = try self.db().one(i64, query, .{}, .{ .group_id = id });
-        if (count != 0) return error.AlreadyExists;
-    }
-    {
-        const query =
-            \\INSERT INTO entries (group_id, name, rating) VALUES (?, ?, ?)
-        ;
-        var stmt = try self.db().prepare(query);
+        var stmt = try self.db().prepare(
+            \\INSERT INTO entries (group_id, name, img, img_pos, rating) VALUES (?, ?, ?, ?, 1500)
+        );
         defer stmt.deinit();
-        for (parsed.value) |e| {
+        for (parsed) |e| {
             stmt.reset();
             try stmt.exec(.{}, .{
                 .group_id = id,
                 .name = e.name,
-                .rating = e.rating,
+                .img = e.img,
+                .img_pos = if (e.img_pos) |img_pos| try std.json.stringifyAlloc(arena.allocator(), img_pos, .{}) else null,
             });
         }
     }
     savepoint.commit();
+
+    return sid;
 }
+
+const EntryGet = struct { name: []const u8, rating: i64 };
 
 /// get group json string
 /// need to free() returned value
@@ -140,7 +156,7 @@ pub fn getGroup(self: *Self, sid: []const u8) ![]const u8 {
     const id = try idFromSid(sid);
 
     const query =
-        \\SELECT name,rating,img FROM entries WHERE group_id = ?
+        \\SELECT name,rating FROM entries WHERE group_id = ?
     ;
     var stmt = try self.db().prepare(query);
     defer stmt.deinit();
@@ -149,7 +165,7 @@ pub fn getGroup(self: *Self, sid: []const u8) ![]const u8 {
     defer arena.deinit();
 
     const data = try stmt.all(
-        Entry,
+        EntryGet,
         arena.allocator(),
         .{},
         .{ .group_id = id },
@@ -161,11 +177,11 @@ pub fn getGroup(self: *Self, sid: []const u8) ![]const u8 {
 
 const Rand = struct {
     threadlocal var rng: ?std.rand.DefaultPrng = null;
-    fn get() !std.rand.Random {
+    fn get() std.rand.Random {
         if (rng == null) {
             rng = std.rand.DefaultPrng.init(blk: {
                 var seed: u64 = undefined;
-                try std.posix.getrandom(std.mem.asBytes(&seed));
+                std.posix.getrandom(std.mem.asBytes(&seed)) catch @panic("getrandom failed");
                 break :blk seed;
             });
         }
@@ -173,13 +189,7 @@ const Rand = struct {
     }
 };
 
-const MatchmakingRow = struct {
-    rowid: i64,
-    matches: i64,
-    name: []u8,
-    rating: i64,
-    img: []u8,
-};
+const EntryMatch = struct { rowid: i64, matches: i64, name: []u8, rating: i64, img: []u8, img_pos: ?[]u8 };
 
 pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
     // TODO: cache the fetch
@@ -206,22 +216,21 @@ pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
     //const preselect_size = 8;
     //const preselected = try preselect(full, preselect_size);
 
-    const preselected: []const MatchmakingRow = blk: {
+    const preselected: []const EntryMatch = blk: {
         // that's supposedly way more performant
         // https://stackoverflow.com/questions/4114940/select-random-rows-in-sqlite
         var stmt = try self.db().prepare(
-            \\SELECT rowid,matches,name,rating,img FROM entries WHERE rowid IN
+            \\SELECT rowid,matches,name,rating,img,img_pos FROM entries WHERE rowid IN
             \\    (SELECT rowid FROM entries WHERE group_id = ? ORDER BY RANDOM() LIMIT 8)
         );
         defer stmt.deinit();
-        break :blk try stmt.all(MatchmakingRow, arena.allocator(), .{}, .{ .group_id = id });
+        break :blk try stmt.all(EntryMatch, arena.allocator(), .{}, .{ .group_id = id });
     };
     if (preselected.len < 2) return error.NotFound;
 
-    const selected = try matchmake(preselected);
+    const sel = try matchmake(preselected);
 
-    const rand = try Rand.get();
-    const match_id = rand.int(u48);
+    const match_id = Rand.get().int(u48);
     const match_sid = try sidFromId(match_id);
 
     //const final_match = blk: {
@@ -239,16 +248,26 @@ pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
         self.active_matches_mtx.lock();
         defer self.active_matches_mtx.unlock();
         try self.active_matches.put(match_id, .{
-            .l_rowid = selected[0].rowid,
-            .r_rowid = selected[1].rowid,
+            .l_rowid = sel[0].rowid,
+            .r_rowid = sel[1].rowid,
             .timestamp = std.time.timestamp(),
         });
     }
 
     return std.json.stringifyAlloc(self.alloc, .{
         .match_id = match_sid,
-        .l = .{ .name = selected[0].name, .rating = selected[0].rating, .img = selected[0].img },
-        .r = .{ .name = selected[1].name, .rating = selected[1].rating, .img = selected[1].img },
+        .l = .{
+            .name = sel[0].name,
+            .rating = sel[0].rating,
+            .img = sel[0].img,
+            .img_pos = if (sel[0].img_pos) |p| try std.json.parseFromSliceLeaky(ImgPos, arena.allocator(), p, .{}) else null,
+        },
+        .r = .{
+            .name = sel[1].name,
+            .rating = sel[1].rating,
+            .img = sel[1].img,
+            .img_pos = if (sel[1].img_pos) |p| try std.json.parseFromSliceLeaky(ImgPos, arena.allocator(), p, .{}) else null,
+        },
     }, .{});
 }
 
@@ -284,10 +303,10 @@ pub fn getMatch(self: *Self, sid: []const u8) ![]const u8 {
 /// based on matches, close elo, randomness
 /// modifies `list`
 /// O(n^2) -> preselect the list
-fn matchmake(list: []const MatchmakingRow) ![2]*const MatchmakingRow {
+fn matchmake(list: []const EntryMatch) ![2]*const EntryMatch {
     if (list.len <= 2) return .{ &list[0], &list[1] };
 
-    const rng = try Rand.get();
+    const rng = Rand.get();
 
     // algo calculates a [skill, matches, rng] score for every combo
     // score is normalized 0 to 100
@@ -308,7 +327,7 @@ fn matchmake(list: []const MatchmakingRow) ![2]*const MatchmakingRow {
     }
 
     // for every combo calc a score and keep the 2 highest
-    var canidates: [2]*const MatchmakingRow = undefined;
+    var canidates: [2]*const EntryMatch = undefined;
     var max_score: i64 = std.math.minInt(i64);
 
     //std.log.debug("i j    Sdif Mdif      S       M       R            S       M       R    SCORE", .{});

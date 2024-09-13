@@ -15,7 +15,7 @@
 
     <NavUl>
       <NavLi href="{base}/">Home</NavLi>
-      <NavLi href="{base}/xdd">Create</NavLi>
+      <NavLi href="{base}/create">Create</NavLi>
       <NavLi href="{base}/xdd">About</NavLi>
     </NavUl>
 

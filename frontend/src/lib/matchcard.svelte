@@ -37,7 +37,7 @@
         id="img"
         src={data.img || base + '/placeholder.png'}
         alt=""
-        class="size-full object-cover"
+        class="size-full object-cover dark:bg-gray-600 bg-gray-200"
       />
     {/if}
   </div>

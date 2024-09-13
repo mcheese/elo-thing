@@ -56,6 +56,8 @@ pub fn main() !void {
             .log = cfg.log_connections,
             .interface = cfg.interface,
             .tls = tls,
+            .max_body_size = 512*1024,
+            .timeout = 5,
         },
     );
 

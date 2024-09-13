@@ -12,11 +12,11 @@
     - [ ] Identify session
   - [ ] Janitor abandoned matches
   - [x] Matchmaking
-  - [ ] Create lists
-    - [ ] Creation
+  - [x] Create lists
+    - [x] Creation
     - [ ] Share lists
-    - [ ] Prewview images
-      - [ ] Position adjust
+    - [x] Prewview images
+      - [x] Position adjust
   - [ ] Settings (per list)
     - [ ] Voting limit
       - [ ] Total votes per person
