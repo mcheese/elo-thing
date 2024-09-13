@@ -149,7 +149,7 @@
     <Heading tag="h1" class="mb-4 text-center" customSize="text-4xl font-bold">
       Create your own list.
     </Heading>
-    
+
     <div class="flex w-full flex-wrap justify-center">
       <div class="flex w-full max-w-screen-md flex-col">
         <form on:submit|preventDefault={add} class="w-full">
@@ -178,14 +178,14 @@
                     <TableBodyCell class="p-0">
                       <Input type="text" id="img_edit" bind:value={img_edit} class="m-0" />
                     </TableBodyCell>
-                    <TableBodyCell class="w-max p-1">
-                      <button type="submit">
-                        <CheckOutline size="md" color="green" />
-                      </button>
+                    <TableBodyCell class="w-8 p-1">
+                      <Button class="p-1 m-0 size-7" color="green" type="submit">
+                        <CheckOutline class="size-6" />
+                      </Button>
                     </TableBodyCell>
-                    <TableBodyCell class="w-max p-1">
+                    <TableBodyCell class="w-8 p-1">
                       <button on:click={edit_reset}>
-                        <CloseOutline size="md" color="red" />
+                        <CloseOutline class="size-6" color="red" />
                       </button>
                     </TableBodyCell>
                   {:else}
@@ -203,14 +203,14 @@
                         {el.img || ''}
                       </a>
                     </TableBodyCell>
-                    <TableBodyCell class="w-max p-1">
+                    <TableBodyCell class="w-8 p-1">
                       <button on:click={() => edit(i)}>
-                        <EditOutline size="md" />
+                        <EditOutline class="size-6" />
                       </button>
                     </TableBodyCell>
-                    <TableBodyCell class="w-max p-1">
+                    <TableBodyCell class="w-8 p-1">
                       <button on:click={() => remove(i)}>
-                        <TrashBinOutline size="md" />
+                        <TrashBinOutline class="size-6" />
                       </button>
                     </TableBodyCell>
                   {/if}
