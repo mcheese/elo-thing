@@ -47,16 +47,9 @@
   const sortDirection = writable(1); // default sort direction (ascending)
   const sortItems = writable([{}]);
 
-  let promise = new Promise(() => {});
+  let promise: Promise<void>;
   onMount(() => {
-    promise = fetchStandings().then(() => {
-      $sortItems.forEach((e) => {
-        if (e.img) {
-          let img = new Image();
-          img.src = e.img; // this supposedly preloads?
-        }
-      });
-    });
+    promise = fetchStandings();
   });
 
   // Define a function to sort the items
