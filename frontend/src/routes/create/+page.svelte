@@ -12,7 +12,8 @@
     TableBodyRow,
     Select,
     Modal,
-    Spinner
+    Spinner,
+    Tooltip,
   } from 'flowbite-svelte';
   import {
     TrashBinOutline,
@@ -39,7 +40,9 @@
   let hover_row: number;
 
   function fix_link(link: string) {
-    return link && link.indexOf('://') === -1 ? 'https://' + link : link;
+    if (!link) return link;
+    const regex = new RegExp('^(https?|ftp|data):');
+    return regex.test(link) ? link : 'https://' + link;
   }
 
   function find_dup() {
@@ -254,7 +257,7 @@
       {/if}
 
       {#key list}
-        <Popover
+        <Tooltip
           placement="bottom-start"
           triggeredBy="#a_img"
           trigger="hover"
@@ -274,7 +277,7 @@
               />
             {/key}
           </div>
-        </Popover>
+        </Tooltip>
       {/key}
 
       <div class="m-3 w-32 *:*:!-z-10 *:m-2">
