@@ -143,7 +143,7 @@ pub fn createGroup(self: *Self, json: []const u8) ![8]u8 {
     return sid;
 }
 
-const EntryGet = struct { name: []const u8, rating: i64 };
+const EntryGet = struct { name: []const u8, rating: i64, img: []u8, img_pos: ?[]u8 };
 
 /// get group json string
 /// need to free() returned value
@@ -156,7 +156,7 @@ pub fn getGroup(self: *Self, sid: []const u8) ![]const u8 {
     const id = try idFromSid(sid);
 
     const query =
-        \\SELECT name,rating FROM entries WHERE group_id = ?
+        \\SELECT name,rating,img,img_pos FROM entries WHERE group_id = ?
     ;
     var stmt = try self.db().prepare(query);
     defer stmt.deinit();
