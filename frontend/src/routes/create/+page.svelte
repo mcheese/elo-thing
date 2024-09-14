@@ -13,7 +13,7 @@
     Select,
     Modal,
     Spinner,
-    Tooltip,
+    Tooltip
   } from 'flowbite-svelte';
   import {
     TrashBinOutline,
@@ -65,6 +65,7 @@
 
   function add(e) {
     if (list.length >= 256) return problem('Too many things.');
+    if (!e.target.name.value && !e.target.img_add.value) return problem('Need at least name or image.');
 
     list = [
       ...list,
@@ -157,16 +158,16 @@
       <div class="flex w-full max-w-screen-md flex-col">
         <form on:submit|preventDefault={add} class="w-full">
           <ButtonGroup class="w-full *:!ring-inset">
-            <Input type="text" id="name" placeholder="Name" required />
+            <Input type="text" id="name" placeholder="Name" />
             <Input
               type="text"
               id="img_add"
               bind:value={img_add}
               placeholder="Direct link to image"
             />
-            <Button color="green" type="submit" class="py-0"
-              ><PlusOutline class="m-0 size-6" /></Button
-            >
+            <Button color="green" type="submit" class="py-0">
+              <PlusOutline class="m-0 size-6" />
+            </Button>
           </ButtonGroup>
         </form>
         <form on:submit|preventDefault={(e) => edit_sub(e)}>
@@ -182,7 +183,7 @@
                       <Input type="text" id="img_edit" bind:value={img_edit} class="m-0" />
                     </TableBodyCell>
                     <TableBodyCell class="w-8 p-1">
-                      <Button class="p-1 m-0 size-7" color="green" type="submit">
+                      <Button class="m-0 size-7 p-1" color="green" type="submit">
                         <CheckOutline class="size-6" />
                       </Button>
                     </TableBodyCell>
@@ -327,18 +328,23 @@
   </Modal>
 {:else}
   {#await submit_promise}
-  <div class="flex justify-center">
-    <Spinner color="green" class="m-36 size-16" />
+    <div class="flex justify-center">
+      <Spinner color="green" class="m-36 size-16" />
     </div>
   {:then id}
     {@const path = base + '/list?id=' + id}
     {@const url = window.location.protocol + '//' + window.location.host + path}
-    <div class="m-16 flex flex-col text-center items-center">
+    <div class="m-16 flex flex-col items-center text-center">
       <Heading customSize="text-4xl font-bold">Your list is ready.</Heading>
-      <Input readonly value={url} class="m-8 w-96 text-lg" on:focus={e => e.target.select()} />
+      <Input readonly value={url} class="m-8 w-96 text-lg" on:focus={(e) => e.target.select()} />
 
       <div class="flex flex-row justify-center *:m-3">
-        <Button color="alternative" on:click={() => {navigator.clipboard.writeText(url)}}>
+        <Button
+          color="alternative"
+          on:click={() => {
+            navigator.clipboard.writeText(url);
+          }}
+        >
           Copy to clipboard
           <ClipboardOutline class="ms-2 h-6 w-6" />
         </Button>
