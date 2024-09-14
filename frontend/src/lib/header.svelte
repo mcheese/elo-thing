@@ -1,5 +1,5 @@
 <script>
-  import { Navbar, NavBrand, NavLi, NavUl, DarkMode, Tooltip } from 'flowbite-svelte';
+  import { Navbar, NavBrand, NavLi, NavUl, NavHamburger, DarkMode, Tooltip } from 'flowbite-svelte';
   import { GithubSolid } from 'flowbite-svelte-icons';
   import { base } from '$app/paths';
 </script>
@@ -13,6 +13,7 @@
       </span>
     </NavBrand>
 
+    <NavHamburger  />
     <NavUl>
       <NavLi href="{base}/">Home</NavLi>
       <NavLi href="{base}/create">Create</NavLi>
