@@ -187,7 +187,7 @@
                 <TableBodyRow>
                   {#if edit_row === i}
                     <TableBodyCell class="p-0">
-                      <Input type="text" id="name_edit" class="m-0" value={el.name} required />
+                      <Input type="text" id="name_edit" class="m-0" value={el.name} />
                     </TableBodyCell>
                     <TableBodyCell class="p-0">
                       <Input type="text" id="img_edit" bind:value={img_edit} class="m-0" />
