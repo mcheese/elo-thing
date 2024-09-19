@@ -28,6 +28,7 @@
   import { base } from '$app/paths';
   import { PUBLIC_ENDPOINT_URL } from '$env/static/public';
   import MatchCard from '$lib/matchcard.svelte';
+  import Import from '$lib/import.svelte';
   import Cropper from 'svelte-easy-crop';
 
   let img_add: string;
@@ -64,15 +65,22 @@
   }
 
   function add(e) {
-    if (list.length >= 256) return problem('Too many things.');
-    if (!e.target.name.value && !e.target.img_add.value) return problem('Need at least name or image.');
+    if (!e.target.name.value && !e.target.img_add.value)
+      return problem('Need at least name or image.');
 
-    list = [
-      ...list,
-      { name: e.target.name.value, img: fix_link(e.target.img_add.value), img_pos: img_pos }
-    ];
+    append({
+      name: e.target.name.value,
+      img: fix_link(e.target.img_add.value),
+      img_pos: img_pos
+    });
+
     e.target.reset();
-    img_add = '';
+  }
+
+  function append(thing) {
+    if (list.length >= 256) return problem('Too many things.');
+
+    list = [...list, thing];
   }
 
   function remove(i: number) {
@@ -104,6 +112,8 @@
   function set_crop(e) {
     img_pos = e.detail.pixels;
   }
+
+  let import_popup = false;
 
   let problem_popup = false;
   let problem_text: string;
@@ -229,9 +239,20 @@
             </TableBody>
           </Table>
         </form>
-        <Button color="green" class="mt-1 self-end px-10 py-2" on:click={create_list}>
-          <p class="text-lg">Create</p>
-        </Button>
+        <div class="my-1 flex flex-row justify-end *:ml-1 *:py-2">
+          <Button
+            color="alternative"
+            class="px-10"
+            on:click={() => {
+              import_popup = true;
+            }}
+          >
+            <p class="text-lg">Import</p>
+          </Button>
+          <Button color="green" class="px-10" on:click={create_list}>
+            <p class="text-lg">Create</p>
+          </Button>
+        </div>
       </div>
 
       <Popover triggeredBy="#img_add" trigger="focus" class="max-w-full shadow-lg">
@@ -309,6 +330,10 @@
       </h3>
       <Button color="alternative">Sorry</Button>
     </div>
+  </Modal>
+
+  <Modal bind:open={import_popup} size="md" autoclose>
+    <Import {append} />
   </Modal>
 
   <Modal bind:open={confirm_popup} size="xs" autoclose>
